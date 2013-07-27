@@ -1,0 +1,54 @@
+A small application to help install and configure Sahana Eden
+
+
+Developed with web2py.
+
+Developer Notes
+===============
+
+This is a single page Ajax web app. The code is in the function index of the
+default.py file.
+
+To add a new step:
+  1) add the name and description of the step to the actions OrderedDict
+  2) add a step to manage the Ajax callback, (elif action == "<name>"
+  3) add the <name>_json function that will processes the step (and is called from 2)
+  4) if a dialog is required then call it where the scripts are set up (script = script + <name>_dialog
+  5) if a dialog is required then add a <name>_dialog function
+
+To add a dialog the function will:
+  1) receive the name of the app
+  2) create the html and add it to response.dialogs.append()
+  3) create the javascript that will process the dialog and return the script
+
+The reply data structure is sent to the browser as JSON. The following are all
+initialised in index but can be overridden by the <name>_json function.
+  * reply.action: the name of the action being processed
+  * reply.result: the result of the action (boolean) controls the icon to be displayed
+  * reply.fatal: default False, if processing can't continue then add a string
+                 which will explain why it must stop
+  * reply.dialog: default False, the html id of the dialog that will be displayed
+                  Note: include the # so that it is a proper selector 
+  * reply.detail: A string which will be displayed in the details section of the web page
+                  This should be basic details of the result
+  * reply.advanced: A string which will be displayed in the advanced section of the web page
+                    This can contain all information that can be useful in 
+                    diagnosing a problem, and replicating the process on the command line
+
+Additional members to the reply structure which are typically set up in the 
+<name>_json function. * are required, # are optional
+  * reply.next: the next action to be performed after this one
+  # reply.subaction: this is the name of the dynaic  subaction being processed
+                     (see the insert_basic attributes)
+  # reply.nextsubaction: this will be a dynamic subaction that has been inserted
+                         (see the insert_basic attributes)
+  # reply.insert_basic: indicates that some html needs to be inserted
+                        into the basic section of the web page
+  # reply.insert_basic_html: This will be the html that is to be inserted
+  # reply.insert_basic_id: This will be the id of where the html is to be inserted
+Any additional members can be created which can the be used by dialogs that are,
+for example, displaying results of the users input.
+
+Data that needs to be kept from one Ajax call to the next (such as user input)
+is stored in the session variable.
+  
