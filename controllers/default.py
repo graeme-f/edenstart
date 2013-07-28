@@ -3,9 +3,18 @@ import json
 import os
 
 def user(): return dict(form=auth())
-
+def error(): return dict()
+def disabled(): return dict()
+'''
+    Note At various times system calls are evoked using the subprocess.pOpen
+         To ensure that they work on a range of systems the shell=True argument
+         is used. This is a potential security issue so the use of this application
+         should be restricted to trusted users.
+'''
 def index():
     app = request.application
+    if not settings.enabled:
+        redirect("/%s/default/disabled" % app)
     if not auth.user_id:
         redirect("/%s/default/user/login" % app)
     if request.ajax:
@@ -431,7 +440,7 @@ def git_json(reply):
     from subprocess import Popen, PIPE
     try:
         cmd = ["git", "--version"]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
         (myout, myerr) = p.communicate()
         reply.detail = T("Looking for git, <b>found:</b> %s" % myout, lazy = False)
         reply.advanced = myerr
@@ -450,9 +459,7 @@ def clone_json(reply):
         appname = session.appname
         eden = session.eden_release
         cmd = ["git", "clone", "https://github.com/flavour/eden.git", "applications/%s" % appname]
-        p = Popen(cmd,
-                  stdout=PIPE,
-                  stderr=PIPE)
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
         (myout, myerr) = p.communicate()
         retcode = p.returncode
         if retcode != 0:
@@ -562,7 +569,7 @@ def pip_json(reply):
     from subprocess import Popen, PIPE
     try:
         cmd = ["pip", "--version"]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
         (myout, myerr) = p.communicate()
         reply.detail = T("Looking for pip, <b>found:</b> %s" % myout, lazy = False)
         reply.advanced = myerr
@@ -575,7 +582,7 @@ def pip_json(reply):
         return json.dumps(reply)
     # Now see if the version of pip supports the --target install option
     cmd = ["pip", "install", "--target"]
-    p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+    p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
     (myout, myerr) = p.communicate()
     if "no such option" in myerr:
         reply.result = False
@@ -610,7 +617,7 @@ def install_json(reply):
     if session.error_lib:
         lib = session.error_lib.pop()
         cmd = ["pip", "install", "--target", target, lib]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
         (myout, myerr) = p.communicate()
         if p.returncode == 0:
             reply.detail = reply.detail + "<br>"+T("Installed <b>%s</b> library" % lib,
@@ -629,7 +636,7 @@ def install_json(reply):
     elif session.warning_lib:
         lib = session.warning_lib.pop()
         cmd = ["pip", "install", "--target", target, lib]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
         (myout, myerr) = p.communicate()
         if p.returncode == 0:
             reply.detail = reply.detail + "<br>"+T("Installed <b>%s</b> library" % lib,

@@ -1,0 +1,14 @@
+/cache/*
+/compiled/*
+/cron/*
+/databases/*
+/errors/*
+/private/auth.key
+/sessions/*
+/static/cache/*
+/languages/*.po
+.~lock.*.csv#
+*.log
+*.pyc
+*.~*~
+.directory
