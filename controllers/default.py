@@ -628,7 +628,9 @@ def install_json(reply):
             reply.detail = reply.detail + "<br>"+T("Failed to install <b>%s</b> library." % (lib),
                                                    lazy = False)
             reply.advanced = reply.advanced +\
-                            "<b>command:</b>%s<br><b>error:</b>%s<br>" % (" ".join(cmd), myout.replace('\n', '<br />'))
+                            "<b>command:</b>%s<br><b>error:</b>%s<br>" % (" ".join(cmd),
+                                                                          myout.replace('\n', '<br />'),
+                                                                          myerr.replace('\n', '<br />'))
             session.fatal = T("Failed to install all of the required libraries",
                             lazy=False)
             reply.result = False
@@ -647,7 +649,9 @@ def install_json(reply):
             reply.detail = reply.detail + "<br>"+T("Failed to install <b>%s</b> library." % (lib),
                                                    lazy = False)
             reply.advanced = reply.advanced +\
-                            "<b>command:</b>%s<br><b>error:</b>%s<br>" % (" ".join(cmd), myout.replace('\n', '<br />'))
+                            "<b>command:</b>%s<br><b>error:</b>%s<br>" % (" ".join(cmd),
+                                                                          myout.replace('\n', '<br />'),
+                                                                          myerr.replace('\n', '<br />'))
             reply.result = False
     if lib:
         reply.subaction = lib
@@ -823,7 +827,7 @@ def check_python_libraries():
     try:
         import dateutil
     except ImportError:
-        errors.append("S3 unresolved dependency: dateutil required for Sahana to run")
+        errors.append("S3 unresolved dependency: python-dateutil required for Sahana to run")
     try:
         import lxml
     except ImportError:
@@ -846,7 +850,7 @@ def check_python_libraries():
         try:
             import Image
         except ImportError:
-            warnings.append("S3PDF unresolved dependency: Python Imaging required for PDF export")
+            warnings.append("S3PDF unresolved dependency: PIL (Python Imaging Library) required for PDF export")
     try:
         import reportlab
     except ImportError:
