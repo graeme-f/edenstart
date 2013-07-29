@@ -7,9 +7,9 @@ def error(): return dict()
 def disabled(): return dict()
 '''
     Note At various times system calls are evoked using the subprocess.pOpen
-         To ensure that they work on a range of systems the shell=True argument
-         is used. This is a potential security issue so the use of this application
-         should be restricted to trusted users.
+         To ensure that they work on 'Windows' systems the shell=True argument
+         is required. This is a potential security issue so the use of this
+         application should be restricted to trusted users.
 '''
 def index():
     app = request.application
@@ -381,6 +381,11 @@ def connect_dialog(app):
                         )
                    )
     response.dialogs.append(appName)
+    hostError = T("Host name is invalid, it must either be a valid host name or an IP address.")
+    portError = T("The port number must be between 0 and 65535")
+    schemaError = T("Schema name may consist of a-z, 0-9, and underscore.")
+    userError = T("The user name must be between 3 and 10 characters and can contain a letter, number or underscore")
+    passwordError = T("The password must be between 6 and 18 characters and can contain a letter, number, hyphen or underscore")
     script = """
 $(function() {
     var dbhost = $("#db_host_in"),
@@ -397,6 +402,18 @@ $(function() {
             "%s": function() {
                 var bValid = true;
                 allFields.removeClass( "ui-state-error" );
+                var validIpAddressRegex = /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/i;
+                var validHostnameRegex = /^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$/i;
+                var validHost = (validIpAddressRegex.test(dbhost.val()) || validHostnameRegex.test(dbhost.val()));
+                if (!validHost){
+                    bValid = false;
+                    dbhost.addClass("ui-state-error");
+                    updateTips("%s");
+                }
+                bValid = bValid && checkRegexp( dbport, /([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$/i, "%s");
+                bValid = bValid && checkRegexp( dbschema, /^[0-9a-z_]+$/i, "%s");
+                bValid = bValid && checkRegexp( dbuser, /^[0-9a-zA-Z_]{3,10}$/i, "%s");
+                bValid = bValid && checkRegexp( dbpassword, /^[a-zA-Z0-9_-]{4,18}$/i, "%s");
                 if ( bValid ) {
                     args['db_host'] = dbhost.val();
                     args['db_port'] = dbport.val();
@@ -416,7 +433,7 @@ $(function() {
         }
     });
 });
-""" % (T("Continue"), app)
+""" % (T("Continue"), hostError, portError, schemaError, userError, passwordError, app)
     return script
 
 def appname_json(reply):
@@ -567,12 +584,22 @@ def python_json(reply):
 
 def pip_json(reply):
     from subprocess import Popen, PIPE
+    import platform
+    windows = platform.system() == "Windows"
     try:
         cmd = ["pip", "--version"]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=windows)
         (myout, myerr) = p.communicate()
-        reply.detail = T("Looking for pip, <b>found:</b> %s" % myout, lazy = False)
-        reply.advanced = myerr
+        if p.returncode == 0:
+            reply.detail = T("Looking for pip, <b>found:</b> %s" % myout.replace('\n', '<br />'),
+                             lazy = False)
+            reply.advanced = myerr
+        else:
+            reply.fatal = T("Unable to continue, please install pip",
+                            lazy=False)
+            reply.detail = "%s<br>" %(reply.fatal)
+            reply.advanced = "<b>command:</b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd),
+                                                                               myout.replace('\n', '<br />'))
     except Exception, inst:
         reply.result = False
         reply.fatal = T("Unable to continue, please install pip",
@@ -582,7 +609,7 @@ def pip_json(reply):
         return json.dumps(reply)
     # Now see if the version of pip supports the --target install option
     cmd = ["pip", "install", "--target"]
-    p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
+    p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=windows)
     (myout, myerr) = p.communicate()
     if "no such option" in myerr:
         reply.result = False
@@ -610,49 +637,44 @@ def install_json(reply):
         Because of the time it takes to install each library it will
         do one at a time and then send the result back as an json string 
     '''
-    from subprocess import Popen, PIPE
-    target = os.path.join(request.env.web2py_path, "site-packages")
+    def pip_install(reply, lib, fatal):
+        '''
+            Function that will use pip to attempt to install the missing python library 
+        '''
+        from subprocess import Popen, PIPE
+        import platform
+        windows = (platform.system() == "Windows")
+
+        target = os.path.join(request.env.web2py_path, "site-packages")
+        cmd = ["pip", "install", "--target", target, lib]
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=windows)
+        (myout, myerr) = p.communicate()
+        if p.returncode == 0:
+            reply.detail = reply.detail + "<br>"+T("Installed <b>%s</b> library" % lib,
+                                                   lazy = False)
+            reply.advanced = reply.advanced +\
+                            "<b>command:</b>%s<br>" % (" ".join(cmd))
+        else:
+            reply.detail = reply.detail + "<br>"+T("Failed to install <b>%s</b> library." % (lib),
+                                                   lazy = False)
+            reply.advanced = reply.advanced +\
+                            "<b>command:</b>%s<br><b>error:</b>%s<br>%s<br>" % (" ".join(cmd),
+                                                                          myout.replace('\n', '<br />'),
+                                                                          myerr.replace('\n', '<br />'))
+            if fatal:
+                session.fatal = T("Failed to install all of the required libraries",
+                                lazy=False)
+            reply.result = False
+        return reply
     # Install a required lib, if one exists
     lib = None
     if session.error_lib:
         lib = session.error_lib.pop()
-        cmd = ["pip", "install", "--target", target, lib]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
-        (myout, myerr) = p.communicate()
-        if p.returncode == 0:
-            reply.detail = reply.detail + "<br>"+T("Installed <b>%s</b> library" % lib,
-                                                   lazy = False)
-            reply.advanced = reply.advanced +\
-                            "<b>command:</b>%s<br>" % (" ".join(cmd))
-        else:
-            reply.detail = reply.detail + "<br>"+T("Failed to install <b>%s</b> library." % (lib),
-                                                   lazy = False)
-            reply.advanced = reply.advanced +\
-                            "<b>command:</b>%s<br><b>error:</b>%s<br>" % (" ".join(cmd),
-                                                                          myout.replace('\n', '<br />'),
-                                                                          myerr.replace('\n', '<br />'))
-            session.fatal = T("Failed to install all of the required libraries",
-                            lazy=False)
-            reply.result = False
-    # Install a optional lib, if one exists
+        reply = pip_install(reply, lib, True)
+    # Install an optional lib, if one exists
     elif session.warning_lib:
         lib = session.warning_lib.pop()
-        cmd = ["pip", "install", "--target", target, lib]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
-        (myout, myerr) = p.communicate()
-        if p.returncode == 0:
-            reply.detail = reply.detail + "<br>"+T("Installed <b>%s</b> library" % lib,
-                                                   lazy = False)
-            reply.advanced = reply.advanced +\
-                            "<b>command:</b>%s<br>" % (" ".join(cmd))
-        else:
-            reply.detail = reply.detail + "<br>"+T("Failed to install <b>%s</b> library." % (lib),
-                                                   lazy = False)
-            reply.advanced = reply.advanced +\
-                            "<b>command:</b>%s<br><b>error:</b>%s<br>" % (" ".join(cmd),
-                                                                          myout.replace('\n', '<br />'),
-                                                                          myerr.replace('\n', '<br />'))
-            reply.result = False
+        reply = pip_install(reply, lib, False)
     if lib:
         reply.subaction = lib
         if session.error_lib:
@@ -666,6 +688,7 @@ def install_json(reply):
             reply.result = False
         return pre_db_json(reply)
     return json.dumps(reply)
+
 
 def pre_db_json(reply):
     reply.dialog = "#db-type-form"
@@ -767,7 +790,11 @@ def get_000_config(attr, default=None):
     value = default
     for line in data:
         if attr in line and line[0] != "#":
-            value = line[line.rfind("= ")+2:].split('"')[1]
+            endvalue =line[line.rfind("= ")+2:]
+            try:
+                value = endvalue.split('"')[1]
+            except: # value is not a string but a number so
+                value = int(endvalue)
     return value
 
 def set_000_config(attr, value, comment=False):
