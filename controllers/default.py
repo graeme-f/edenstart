@@ -355,7 +355,7 @@ def connect_dialog(app):
     appName.append(FORM(LABEL(T("Database host")),
                         INPUT(_id = "db_host_in",
                               _name = "db_host_in",
-                              value = "localhost"
+                              value = ""
                              ),
                         LABEL(T("Database port")),
                         INPUT(_id = "db_port_in",
@@ -365,12 +365,12 @@ def connect_dialog(app):
                         LABEL(T("Database schema name")),
                         INPUT(_id = "db_schema_in",
                               _name = "db_schema_in",
-                              value = "sahana"
+                              value = ""
                              ),
                         LABEL(T("Database username")),
                         INPUT(_id = "db_user_in",
                               _name = "db_user_in",
-                              value = "sahana"
+                              value = ""
                              ),
                         LABEL(T("Database password")),
                         INPUT(_id = "db_password_in",
@@ -426,7 +426,11 @@ $(function() {
             }
         },
         open: function (event, ui){
-            $("#db_port_in").val(data.db_port); 
+            $(dbhost).val(data.db_host);
+            $(dbport).val(data.db_port);
+            $(dbschema).val(data.db_schema);
+            $(dbuser).val(data.db_user);
+            $(dbpassword).val(data.db_password);
         },
         close: function() {
             allFields.val("").removeClass("ui-state-error");
@@ -704,6 +708,8 @@ def db_json(reply):
                    '"%s"'%db_type,
                    comment=(db_type=="sqlite")
                   )
+    reply.detail = reply.detail + T("type <b>%s</b> selected" % db_type,
+                                    lazy = False)
     return pre_connect_json(reply)
 
 def pre_connect_json(reply):
@@ -718,11 +724,19 @@ def pre_connect_json(reply):
     elif db_type == "mysql":
         reply.dialog = "#db-connect-form"
         reply.next = "connect"
+        reply.db_host = get_000_config("host", "localhost")
         reply.db_port = get_000_config("port", "3306")
+        reply.db_schema = get_000_config("schema", "sahana")
+        reply.db_user = get_000_config("user", "sahana")
+        reply.db_password = get_000_config("password", "")
     elif db_type == "postgres":
         reply.dialog = "#db-connect-form"
         reply.next = "connect"
+        reply.db_host = get_000_config("host", "localhost")
         reply.db_port = get_000_config("port", "5432")
+        reply.db_schema = get_000_config("schema", "sahana")
+        reply.db_user = get_000_config("user", "sahana")
+        reply.db_password = get_000_config("password", "")
     return json.dumps(reply)
 
 def connect_json(reply):
@@ -746,7 +760,29 @@ def connect_json(reply):
     set_000_config("database.password",
                    '"%s"'%db_password
                   )
-    reply.next = "web_server"
+    # Now construct the database string
+    db_type = session.db_type
+    if (db_type == "sqlite"):
+        db_string = "sqlite://storage.db"
+    elif (db_type == "mysql"):
+        db_string = "mysql://%s:%s@%s:%s/%s" % \
+                    (db_user, db_password, db_host, db_port, db_schema)
+    elif (db_type == "postgres"):
+        db_string = "postgres://%s:%s@%s:%s/%s" % \
+                    (db_user, db_password, db_host, db_port, db_schema)
+    # attempt to connect using the string
+    try:
+        db = DAL(db_string)
+        session.db_string = db_string
+        reply.next = "web_server"
+    except:
+        reply.result = False
+        reply.detail = reply.detail + "<br>"+T("Connection to database <b>failed</b>",
+                                               lazy = False)
+        reply.advanced = reply.advanced +\
+                        "Connection using database string <b>%s</b> failed<br>" % db_string
+        reply.dialog = "#db-type-form"
+        reply.next = "database"
     return json.dumps(reply)
 
 def strip_lib(msg):
