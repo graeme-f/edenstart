@@ -49,6 +49,8 @@ def index():
             return db_json(reply)
         elif action == "connect":
             return connect_json(reply)
+        elif action == "base":
+            return base_json(reply)
         else:
             reply.next = "finished"
             return json.dumps(reply)
@@ -71,7 +73,7 @@ def index():
         actions["install"] = T("Using pip to install missing libraries")
         actions["database"] = T("Selecting the database to use")
         actions["connect"] = T("Connecting to the database")
-        actions["web_server"] = T("Type of web server")
+        actions["base"] = T("Basic system settings")
         table = TABLE()
         for (key,value) in actions.items():
             table.append(TR(
@@ -105,13 +107,17 @@ function success(_data){
     if (data.result) {
         if (data.subaction){
             $("#"+data.subaction+"_pass").show();
+            $("#"+data.subaction+"_fail").hide();
         } else {
             $("#"+data.action+"_pass").show();
+            $("#"+data.action+"_fail").hide();
         }
     } else {
         if (data.subaction){
+            $("#"+data.subaction+"_pass").hide();
             $("#"+data.subaction+"_fail").show();
         } else {
+            $("#"+data.action+"_pass").hide();
             $("#"+data.action+"_fail").show();
         }
     }
@@ -200,6 +206,7 @@ function checkRegexp(o, regexp, n) {
         script = script + pip_dialog(app)
         script = script + db_type_dialog(app)
         script = script + connect_dialog(app)
+        script = script + base_dialog(app)
         return dict(script=script)
 
 def appname_dialog(app):
@@ -438,6 +445,72 @@ $(function() {
     });
 });
 """ % (T("Continue"), hostError, portError, schemaError, userError, passwordError, app)
+    return script
+
+def base_dialog(app):
+    appName = DIV(_id="sys-base-form",
+                  _title=T("Enter the system details")
+                 )
+    appName.append(P(T("Provide base system details"),
+                     _class="validateTips"))
+    appName.append(FORM(LABEL(T("System name")),
+                        INPUT(_id = "sys_name_in",
+                              _name = "sys_name_in",
+                              value = ""
+                             ),
+                        LABEL(T("System short name")),
+                        INPUT(_id = "sys_abbrv_in",
+                              _name = "sys_abbrv_in",
+                              value = ""
+                             ),
+                        LABEL(T("Public URL")),
+                        INPUT(_id = "url_in",
+                              _name = "url_in",
+                              value = ""
+                             )
+                        )
+                   )
+    response.dialogs.append(appName)
+    nameError = T("The system name needs can contain letters and spaces and be between 3 and 128 characters long.")
+    abbrError = T("The system short name needs can contain letters and spaces and be between 3 and 32 characters long.")
+    urlError = T("The url needs to be a valid URL, including the port number")
+    script = """
+$(function() {
+    var sysname = $("#sys_name_in"),
+        sysabbrv = $("#sys_abbrv_in"),
+        sysurl = $("#url_in"),
+        allFields = $([]).add(sysname).add(sysabbrv).add(sysurl),
+        tips = $(".validateTips");
+    $("#sys-base-form").dialog({
+        autoOpen: false,
+        modal: true,
+        buttons: {
+            "%s": function() {
+                var bValid = true;
+                allFields.removeClass( "ui-state-error" );
+                bValid = bValid && checkRegexp( sysname, /^[a-zA-Z ]{3,128}$/, "%s");
+                bValid = bValid && checkRegexp( sysabbrv, /^[a-zA-Z ]{3,32}$/, "%s");
+                bValid = bValid && checkRegexp( sysurl, /^http(s?)\:\/\/[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:[0-9]*)$/, "%s");
+                if ( bValid ) {
+                    args['sys_name'] = sysname.val();
+                    args['sys_abbrv'] = sysabbrv.val();
+                    args['sys_url'] = sysurl.val();
+                    $( this ).dialog("close");
+                    $.get('/%s/default/index', args).done(function(data){success(data)});
+                }
+            }
+        },
+        open: function (event, ui){
+            $(sysname).val(data.sys_name);
+            $(sysabbrv).val(data.sys_abbrv);
+            $(sysurl).val(data.sys_url);
+        },
+        close: function() {
+            allFields.val("").removeClass("ui-state-error");
+        }
+    });
+});
+""" % (T("Continue"), nameError, abbrError, urlError, app)
     return script
 
 def appname_json(reply):
@@ -720,7 +793,7 @@ def pre_connect_json(reply):
         set_000_config("database.database","",True)
         set_000_config("database.username","",True)
         set_000_config("database.password","",True)
-        reply.next = "web_server"
+        reply.next = "connect"
     elif db_type == "mysql":
         reply.dialog = "#db-connect-form"
         reply.next = "connect"
@@ -740,28 +813,33 @@ def pre_connect_json(reply):
     return json.dumps(reply)
 
 def connect_json(reply):
+    db_type = session.db_type
     db_host = request.get_vars.db_host
     db_port = request.get_vars.db_port
     db_schema = request.get_vars.db_schema
     db_user = request.get_vars.db_user
     db_password = request.get_vars.db_password
     set_000_config("database.host",
-                   '"%s"'%db_host
+                   '"%s"'%db_host,
+                   comment=(db_type=="sqlite")
                   )
     set_000_config("database.port",
-                   db_port
+                   db_port,
+                   comment=(db_type=="sqlite")
                   )
     set_000_config("database.database",
-                   '"%s"'%db_schema
+                   '"%s"'%db_schema,
+                   comment=(db_type=="sqlite")
                   )
     set_000_config("database.username",
-                   '"%s"'%db_user
+                   '"%s"'%db_user,
+                   comment=(db_type=="sqlite")
                   )
     set_000_config("database.password",
-                   '"%s"'%db_password
+                   '"%s"'%db_password,
+                   comment=(db_type=="sqlite")
                   )
     # Now construct the database string
-    db_type = session.db_type
     if (db_type == "sqlite"):
         db_string = "sqlite://storage.db"
     elif (db_type == "mysql"):
@@ -770,11 +848,32 @@ def connect_json(reply):
     elif (db_type == "postgres"):
         db_string = "postgres://%s:%s@%s:%s/%s" % \
                     (db_user, db_password, db_host, db_port, db_schema)
+    reply = db_connect(reply, db_string)
+    return json.dumps(reply)
+
+def base_json(reply):
+    sys_name = request.get_vars.sys_name
+    sys_abbrv = request.get_vars.sys_abbrv
+    sys_url = request.get_vars.sys_url
+    set_000_config("base.system_name", 'T("%s")' % sys_name)
+    set_000_config("base.system_name_short", 'T("%s")' % sys_abbrv)
+    set_000_config("base.public_url", '"%s"' % sys_url)
+    return json.dumps(reply)
+
+def db_connect(reply, db_string):
     # attempt to connect using the string
     try:
         db = DAL(db_string)
         session.db_string = db_string
-        reply.next = "web_server"
+        reply.detail = reply.detail + "<br>"+T("Connection to database <b>success</b>",
+                                               lazy = False)
+        reply.advanced = reply.advanced +\
+                        "Connection using database string <b>%s</b> succeeded<br>" % db_string
+        reply.dialog = "#sys-base-form"
+        reply.sys_name = get_000_config("system_name", "Sahana Eden Humanitarian Management Platform")
+        reply.sys_abbrv = get_000_config("system_name_short", "Sahana Eden")
+        reply.sys_url = get_000_config("public_url", "http://127.0.0.1:8000")
+        reply.next = "base"
     except:
         reply.result = False
         reply.detail = reply.detail + "<br>"+T("Connection to database <b>failed</b>",
@@ -783,7 +882,7 @@ def connect_json(reply):
                         "Connection using database string <b>%s</b> failed<br>" % db_string
         reply.dialog = "#db-type-form"
         reply.next = "database"
-    return json.dumps(reply)
+    return reply
 
 def strip_lib(msg):
     needle = "unresolved dependency: "
@@ -823,6 +922,8 @@ def load_000_config():
 
 def get_000_config(attr, default=None):
     data = load_000_config()
+    if attr[-1] != " ":
+        attr = attr + " "
     value = default
     for line in data:
         if attr in line and line[0] != "#":
@@ -834,6 +935,8 @@ def get_000_config(attr, default=None):
     return value
 
 def set_000_config(attr, value, comment=False):
+    if attr[-1] != " ":
+        attr = attr + " "
     # Read in the 000_config file
     appname = session.appname
     base_cfg_file = "applications/%s/models/000_config.py" % appname
