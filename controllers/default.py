@@ -51,6 +51,8 @@ def index():
             return connect_json(reply)
         elif action == "base":
             return base_json(reply)
+        elif action == "template":
+            return template_json(reply)
         else:
             reply.next = "finished"
             return json.dumps(reply)
@@ -74,6 +76,7 @@ def index():
         actions["database"] = T("Selecting the database to use")
         actions["connect"] = T("Connecting to the database")
         actions["base"] = T("Basic system settings")
+        actions["template"] = T("Select the template to use")
         table = TABLE()
         for (key,value) in actions.items():
             table.append(TR(
@@ -207,6 +210,7 @@ function checkRegexp(o, regexp, n) {
         script = script + db_type_dialog(app)
         script = script + connect_dialog(app)
         script = script + base_dialog(app)
+        script = script + template_dialog(app)
         return dict(script=script)
 
 def appname_dialog(app):
@@ -511,6 +515,38 @@ $(function() {
     });
 });
 """ % (T("Continue"), nameError, abbrError, urlError, app)
+    return script
+
+def template_dialog(app):
+    template = DIV(_id="template-form",
+                  _title=T("Template")
+                 )
+    template.append(P(T("Select the template that will be used.")))
+    template.append(FORM(LABEL(T("Template")),
+                       SELECT(_id = "template_in",
+                             _name = "template_in"
+                            )
+                        )
+                   )
+    response.dialogs.append(template)
+    script = '''
+$(function() {
+    $("#template-form").dialog({
+        autoOpen: false,
+        modal: true,
+        buttons: {
+            %s: function() {
+                args['template'] = $("#template_in").val();
+                $( this ).dialog("close");
+                $.get('/%s/default/index', args).done(function(data){success(data)});
+            }
+        },
+        open: function (event, ui){
+            $("#template_in").append(data.template_options);
+        }
+    });
+});
+''' % (T("Continue"), app)
     return script
 
 def appname_json(reply):
@@ -858,6 +894,35 @@ def base_json(reply):
     set_000_config("base.system_name", 'T("%s")' % sys_name)
     set_000_config("base.system_name_short", 'T("%s")' % sys_abbrv)
     set_000_config("base.public_url", '"%s"' % sys_url)
+    return pre_template_json(reply)
+
+
+def pre_template_json(reply):
+    reply.dialog = "#template-form"
+    reply.next = "template"
+    template_path = "applications/%s/private/templates" % session.appname
+    dir_list = os.listdir(template_path)
+    dir_list.sort()
+    option_list = ""
+    for file in dir_list:
+        new_file = "%s/%s" % (template_path, file)
+        if os.path.isdir(new_file):
+            if file == "default":
+                option_list = option_list\
+                            + OPTION(file,
+                                     _id=file,
+                                     _value=file,
+                                     _selected=True).xml()
+            else:
+                option_list = option_list\
+                            + OPTION(file,
+                                     _id=file,
+                                     _value=file).xml()
+    reply.template_options = option_list
+    return json.dumps(reply)
+
+def template_json(reply):
+    set_000_config("base.template", '"%s"' % request.get_vars.template)
     return json.dumps(reply)
 
 def db_connect(reply, db_string):
