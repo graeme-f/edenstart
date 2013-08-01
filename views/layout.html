@@ -5,6 +5,7 @@
    {{=response.title or request.application}}
   </title>
   {{response.files.append(URL(request.application,'static','plugin_layouts/layouts/TinyBlue/styles.css'))}}
+  {{response.files.append(URL(request.application,'static','css/edenstart.css'))}}
   {{include 'web2py_ajax.html'}}
   <style>
 ul.web2py-menu-vertical { width: 150px; position: relative; top:1em; left:1em;  z-index:30; border:0; margin:0; padding: 0; list-style: none; text-decoration: none;}

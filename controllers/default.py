@@ -222,6 +222,7 @@ def appname_dialog(app):
     appName.append(FORM(LABEL(T("Application name")),
                         INPUT(_id = "appname_in",
                               _name = "appname_in",
+                              _class="text ui-widget-content ui-corner-all",
                               value = "test"
                              )
                         )
@@ -316,26 +317,30 @@ def db_type_dialog(app):
                   _title=T("Database type")
                  )
     dbType.append(P(T("Select the type of database that will be used.")))
-    dbType.append(FORM(LABEL(T("Sqlite")),
-                       INPUT(_id = "dbtype_sqlite",
+    dbType.append(TABLE(
+                        TR( TD(INPUT(_id = "dbtype_sqlite",
                              _name = "dbtype_in",
                              _type = "radio",
                              _value = "sqlite"
-                            ),
-                       LABEL(T("MySql")),
-                       INPUT(_id = "dbtype_mysql",
+                            )),
+                            TD(LABEL(T("Sqlite")))
+                        ),
+                       TR( TD(INPUT(_id = "dbtype_mysql",
                              _name = "dbtype_in",
                              _type = "radio",
                              _value = "mysql"
-                            ),
-                       LABEL(T("PostgeSQL")),
-                       INPUT(_id = "dbtype_postgres",
+                            )),
+                          TD(LABEL(T("MySql")))
+                       ),
+                       TR(TD(INPUT(_id = "dbtype_postgres",
                              _name = "dbtype_in",
                              _type = "radio",
                              _value = "postgres"
-                            ),
-                        )
-                   )
+                            )),
+                          TD(LABEL(T("PostgeSQL")))
+                       )
+                      ),
+                  )
     response.dialogs.append(dbType)
     script = '''
 $(function() {
@@ -366,27 +371,32 @@ def connect_dialog(app):
     appName.append(FORM(LABEL(T("Database host")),
                         INPUT(_id = "db_host_in",
                               _name = "db_host_in",
+                              _class="text ui-widget-content ui-corner-all",
                               value = ""
                              ),
                         LABEL(T("Database port")),
                         INPUT(_id = "db_port_in",
                               _name = "db_port_in",
+                              _class="text ui-widget-content ui-corner-all",
                               value = ""
                              ),
                         LABEL(T("Database schema name")),
                         INPUT(_id = "db_schema_in",
                               _name = "db_schema_in",
+                              _class="text ui-widget-content ui-corner-all",
                               value = ""
                              ),
                         LABEL(T("Database username")),
                         INPUT(_id = "db_user_in",
                               _name = "db_user_in",
+                              _class="text ui-widget-content ui-corner-all",
                               value = ""
                              ),
                         LABEL(T("Database password")),
                         INPUT(_id = "db_password_in",
                               _name = "db_password_in",
                               _type = "password",
+                              _class="text ui-widget-content ui-corner-all",
                               value = ""
                              ),
                         )
@@ -460,16 +470,19 @@ def base_dialog(app):
     appName.append(FORM(LABEL(T("System name")),
                         INPUT(_id = "sys_name_in",
                               _name = "sys_name_in",
+                              _class="text ui-widget-content ui-corner-all",
                               value = ""
                              ),
                         LABEL(T("System short name")),
                         INPUT(_id = "sys_abbrv_in",
                               _name = "sys_abbrv_in",
+                              _class="text ui-widget-content ui-corner-all",
                               value = ""
                              ),
                         LABEL(T("Public URL")),
                         INPUT(_id = "url_in",
                               _name = "url_in",
+                              _class="text ui-widget-content ui-corner-all",
                               value = ""
                              )
                         )
@@ -488,6 +501,7 @@ $(function() {
     $("#sys-base-form").dialog({
         autoOpen: false,
         modal: true,
+        width: 700,
         buttons: {
             "%s": function() {
                 var bValid = true;
@@ -522,10 +536,11 @@ def template_dialog(app):
                   _title=T("Template")
                  )
     template.append(P(T("Select the template that will be used.")))
-    template.append(FORM(LABEL(T("Template")),
-                       SELECT(_id = "template_in",
-                             _name = "template_in"
-                            )
+    template.append(TABLE(TR(TD( LABEL(T("Template"))),
+                             TD( SELECT(_id = "template_in",
+                                     _name = "template_in"
+                                     ))
+                              )
                         )
                    )
     response.dialogs.append(template)

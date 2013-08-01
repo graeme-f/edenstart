@@ -1,0 +1,10 @@
+input.text {
+    margin-bottom: 12px;
+    padding: 0.4em;
+    width: 95%;
+}
+
+label, input {
+    display: block;
+}
+
