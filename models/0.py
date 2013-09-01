@@ -1,7 +1,8 @@
 from gluon.storage import Storage
 settings = Storage()
 
-settings.enabled = True
+settings.enabled = True  # As a security measure set to False when finished with.
+
 settings.migrate = True
 settings.title = 'WebSetup Sahana Eden'
 settings.subtitle = 'Sahana Eden'

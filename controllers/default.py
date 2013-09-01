@@ -1,61 +1,80 @@
 # -*- coding: utf-8 -*-
-import json
-import os
-
-def user(): return dict(form=auth())
-def error(): return dict()
-def disabled(): return dict()
 '''
     Note At various times system calls are evoked using the subprocess.pOpen
          To ensure that they work on 'Windows' systems the shell=True argument
          is required. This is a potential security issue so the use of this
          application should be restricted to trusted users.
+    Note As a security measure this application can be disabled by setting
+         the enabled setting in models/0.py to False
 '''
+
+app = request.application
+if not settings.enabled and (request.function != "disabled"):
+    redirect("/%s/default/disabled" % app)
+
+import json
+import os
+
+def error(): return dict()
+def disabled():
+    if settings.enabled:
+        redirect("/%s/default/index" % app)
+    return dict()
+
+# Global settings for ajax callbacks
+if request.ajax:
+    action = request.function
+    reply = Storage()
+    reply.action = action
+    reply.result = True
+    reply.fatal = False
+    reply.dialog = False
+    reply.detail = ""
+    reply.advanced = ""
+
 def index():
-    app = request.application
-    if not settings.enabled:
-        redirect("/%s/default/disabled" % app)
-    if not auth.user_id:
-        redirect("/%s/default/user/login" % app)
     if request.ajax:
-        action = request.get_vars.action
-        reply = Storage()
-        reply.action = action
-        reply.result = True
-        reply.fatal = False
-        reply.dialog = False
-        reply.detail = ""
-        reply.advanced = ""
-        if action == "start":
-            reply.next = "appname"
-            reply.dialog = "#app-name-form"
-            return json.dumps(reply)
-        elif action == "appname":
-            return appname_json(reply)
-        elif action == "git":
-            return git_json(reply)
-        elif action == "clone":
-            return clone_json(reply)
-        elif action == "python":
-            return python_json(reply)
-        elif action == "pip":
-            if request.get_vars.button == "install":
-                return pip_json(reply)
-            elif request.get_vars.button == "skip":
-                return pre_db_json(reply)
-        elif action == "install":
-            return install_json(reply)
-        elif action == "database":
-            return db_json(reply)
-        elif action == "connect":
-            return connect_json(reply)
-        elif action == "base":
-            return base_json(reply)
-        elif action == "template":
-            return template_json(reply)
-        else:
-            reply.next = "finished"
-            return json.dumps(reply)
+#        action = request.get_vars.action
+#        reply = Storage()
+#        reply.action = action
+#        reply.result = True
+#        reply.fatal = False
+#        reply.dialog = False
+#        reply.detail = ""
+#        reply.advanced = ""
+#        if action == "start":
+#            reply.next = "appname"
+#            reply.dialog = "#app-name-form"
+#            return json.dumps(reply)
+#        elif action == "appname":
+#            return appname_json(reply)
+#        elif action == "git":
+#            return git_json(reply)
+#        elif action == "clone":
+#            return clone_json(reply)
+#        elif action == "python":
+#            return python_json(reply)
+#        elif action == "pip":
+#            if request.get_vars.button == "install":
+#                return pip_json(reply)
+#            elif request.get_vars.button == "skip":
+#                return pre_db_json(reply)
+#        elif action == "install":
+#            return install_json(reply)
+#        elif action == "database":
+#            return db_json(reply)
+#        elif action == "connect":
+#            return connect_json(reply)
+#        elif action == "base":
+#            return base_json(reply)
+#        elif action == "template":
+#            return template_json(reply)
+#        elif action == "module":
+#            return module_json(reply)
+#        else:
+#            reply.next = "finished"
+#            return json.dumps(reply)
+        pass
     else:
         try:
             # Python 2.7
@@ -67,6 +86,7 @@ def index():
         session.fatal = None
         response.title=T("Sahana Eden Web Setup")
         actions = OrderedDict()
+        actions["setup_type"] = T("Type of setup")
         actions["appname"] = T("Getting the application name")
         actions["git"] = T("Looking for git")
         actions["clone"] = T("Cloning Sahana Eden")
@@ -77,6 +97,7 @@ def index():
         actions["connect"] = T("Connecting to the database")
         actions["base"] = T("Basic system settings")
         actions["template"] = T("Select the template to use")
+        actions["modules"] = T("Select modules to enable")
         table = TABLE()
         for (key,value) in actions.items():
             table.append(TR(
@@ -97,9 +118,18 @@ def index():
                         )
         response.basic=table
         script = """
-// Check if git libraries exist
-function success(_data){
+app = "%s";
+success = function(_data){
     data = $.parseJSON(_data) // Global scope so that dialog events can access it
+    if (data.html) {$("#dialogs").html(data.html);};
+    if (data.script){
+        $.getScript(data.script,function(){dashboard_update();});
+    } else {
+        dashboard_update();
+    }
+}
+
+dashboard_update = function(){
     if (data.subaction){
         $("#"+data.subaction+"_wait").hide();
         $("#"+data.subaction+"_process").hide();
@@ -136,8 +166,6 @@ function success(_data){
         return;
     }
     if (data.next != 'finished') {
-        args = new Object();
-        args['action'] = data.next;
         if (data.nextsubaction){
             $("#"+data.nextsubaction+"_wait").hide();
             $("#"+data.nextsubaction+"_process").show();
@@ -147,7 +175,7 @@ function success(_data){
         if (data.dialog){
             $(data.dialog).dialog("open")
         } else {
-            $.get('/%s/default/index', args).done(function(data){success(data)});
+            $.get('/'+app+'/default/'+data.next).done(function(data){success(data)});
         }
     }
 }
@@ -156,12 +184,8 @@ function insert_basic(id, html){
     $("td#"+id).append(html);
 }
 
-var args = new Object();
-args['action'] = 'start';
-$("#appname_wait").hide();
-$("#appname_process").show();
 
-$.get('/%s/default/index', args)
+$.get('/'+app+'/default/start')
 .done(function(data){success(data)});
 
 $("input[name='display']").change(function(){
@@ -183,7 +207,7 @@ function updateTips( t ) {
         $(".validateTips").removeClass( "ui-state-highlight", 1500 );
     }, 500 );
 }
-function checkLength( o, n, min, max ) {
+checkLength = function( o, n, min, max ) {
     if ( o.val().length > max || o.val().length < min ) {
         o.addClass( "ui-state-error" );
         updateTips( "Length of " + n + " must be between " + min + " and " + max + "." );
@@ -192,7 +216,7 @@ function checkLength( o, n, min, max ) {
         return true;
     }
 }
-function checkRegexp(o, regexp, n) {
+checkRegexp = function (o, regexp, n) {
     if (!(regexp.test(o.val())) ) {
         o.addClass("ui-state-error");
         updateTips(n);
@@ -201,63 +225,21 @@ function checkRegexp(o, regexp, n) {
         return true;
     }
 }
-""" % (app, app)
+""" % (app)
         # Add input dialogs
-        response.dialogs = DIV()
-        script = script + appname_dialog(app)
-        script = script + appexist_dialog(app)
-        script = script + pip_dialog(app)
-        script = script + db_type_dialog(app)
-        script = script + connect_dialog(app)
-        script = script + base_dialog(app)
-        script = script + template_dialog(app)
+#        response.dialogs = DIV()
+##        script = script + setup_type_dialog(app)
+#        script = script + appname_dialog(app)
+#        script = script + appexist_dialog(app)
+#        script = script + pip_dialog(app)
+#        script = script + db_type_dialog(app)
+#        script = script + connect_dialog(app)
+#        script = script + base_dialog(app)
+#        script = script + template_dialog(app)
+#        script = script + module_dialog(app)
         return dict(script=script)
 
-def appname_dialog(app):
-    appName = DIV(_id="app-name-form",
-                  _title=T("Enter an application name")
-                 )
-    appName.append(P(T("Enter the name you will call your application"),
-                     _class="validateTips"))
-    appName.append(FORM(LABEL(T("Application name")),
-                        INPUT(_id = "appname_in",
-                              _name = "appname_in",
-                              _class="text ui-widget-content ui-corner-all",
-                              value = "test"
-                             )
-                        )
-                   )
-    response.dialogs.append(appName)
-    script = """
-$(function() {
-    var appname = $("#appname_in"),
-        allFields = $([]).add(appname),
-        tips = $(".validateTips");
-    $("#app-name-form").dialog({
-        autoOpen: false,
-        height: 300,
-        width: 350,
-        modal: true,
-        buttons: {
-            "%s": function() {
-                var bValid = true;
-                allFields.removeClass( "ui-state-error" );
-                bValid = bValid && checkLength( appname, "application name", 3, 16 );
-                bValid = bValid && checkRegexp( appname, /^[a-z]([0-9a-z])+$/i, "Application name may consist of a-z, 0-9, begin with a letter.");
-                if ( bValid ) {
-                    args['appname'] = appname.val();
-                    $( this ).dialog("close");
-                    $.get('/%s/default/index', args).done(function(data){success(data)});
-                }
-            }
-        },
-        close: function() {
-            allFields.val("").removeClass("ui-state-error");
-        }
-    });
-});
-""" % (T("Continue"), app)
-    return script
+
 
 def appexist_dialog(app):
     existsName = DIV(_id="app-exists-alert",
@@ -564,69 +546,36 @@ $(function() {
 ''' % (T("Continue"), app)
     return script
 
-def appname_json(reply):
-    appname = request.get_vars.appname
-    reply.detail = T("Appname will be <b>%s</b>" % appname, lazy = False)
-    session.appname =  appname
-    path = os.path.join("applications", appname)
-    if os.path.isdir(path): 
-        if os.path.isdir(os.path.join(path, ".git")):
-            reply.detail = reply.detail +\
-                           "<br>" +\
-                           T("Directory %s already exists, so %s will not be cloned" % (appname, session.eden_release),
-                                            lazy = False)
-            reply.dialog = "#app-exists-alert"
-            reply.next = "python"
-            return json.dumps(reply)
-    reply.next = "git"
-    return json.dumps(reply)
-
-def git_json(reply):
-    from subprocess import Popen, PIPE
-    try:
-        cmd = ["git", "--version"]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
-        (myout, myerr) = p.communicate()
-        reply.detail = T("Looking for git, <b>found:</b> %s" % myout, lazy = False)
-        reply.advanced = myerr
-    except Exception, inst:
-        reply.result = False
-        reply.fatal = T("Unable to continue, please install git",
-                        lazy=False)
-        reply.detail = "%s<br>" %(reply.fatal)
-        reply.advanced = "<b>command:</b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd), inst)
-    reply.next = "clone"
-    return json.dumps(reply)
-
-def clone_json(reply):
-    from subprocess import Popen, PIPE
-    try:
-        appname = session.appname
-        eden = session.eden_release
-        cmd = ["git", "clone", "https://github.com/flavour/eden.git", "applications/%s" % appname]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
-        (myout, myerr) = p.communicate()
-        retcode = p.returncode
-        if retcode != 0:
-            reply.result = False
-            reply.fatal = T("Unable to clone %s" % eden,
-                            lazy=False)
-            reply.detail = T("Cloning %s into application %s:<b> Failed</b>" % (eden, appname),
-                             lazy = False)
-            reply.advanced = "<b>command: </b>%s<br><b>error:</b> %s<br>" % (" ".join(cmd), myerr)
-        else:
-            reply.detail = T("Cloning %s into application %s: <br>%s" % (eden, appname, myout),
-                             lazy = False)
-            reply.advanced = "<b>command: </b>%s<br>" % (" ".join(cmd))
-    except Exception, inst:
-        reply.result = False
-        reply.fatal = T("Unable to clone %s" % eden,
-                        lazy=False)
-        reply.detail = reply.fatal + "<br>"
-        reply.advanced = "<b>command: </b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd), inst)
-        reply.next = "finished"
-    reply.next = "python"
-    return json.dumps(reply)
+def module_dialog(app):
+    module = DIV(_id="module-form",
+                  _title=T("Template")
+                 )
+    module.append(P(T("Select the modules that will be enabled.")))
+    module.append(TABLE(TR(TD( LABEL(T("Modules"))),
+                              ),
+                        _id="module_list"
+                        ),
+                   )
+    response.dialogs.append(module)
+    script = '''
+$(function() {
+    $("#module-form").dialog({
+        autoOpen: false,
+        modal: true,
+        buttons: {
+            %s: function() {
+                args['module'] = $("#module_in").val();
+                $( this ).dialog("close");
+                $.get('/%s/default/index', args).done(function(data){success(data)});
+            }
+        },
+        open: function (event, ui){
+            $("#module_list").append(data.module_list);
+        }
+    });
+});
+''' % (T("Continue"), app)
+    return script
 
 def python_json(reply):
     result = check_python_libraries()
@@ -940,6 +889,9 @@ def template_json(reply):
     set_000_config("base.template", '"%s"' % request.get_vars.template)
     return json.dumps(reply)
 
+def module_json(reply):
+    return json.dumps(reply)
+
 def db_connect(reply, db_string):
     # attempt to connect using the string
     try:
@@ -1133,3 +1085,176 @@ def check_python_libraries():
         warnings.append("Vulnerability unresolved dependency: numpy required for Vulnerability module support")
 
     return {"error_messages": errors, "warning_messages": warnings}
+
+def start():
+    if not request.ajax:
+        redirect("/%s/default/index" % app)
+
+    reply.next = "setup_type"
+    reply.dialog = "#setup-type-form"
+    (reply.html, reply.script) = setup_type_dialog(app)
+    return json.dumps(reply)
+
+def setup_type():
+    if not request.ajax:
+        redirect("/%s/default/index" % app)
+
+    reply.next = "appname"
+    reply.dialog = "#app-name-form"
+    (reply.html, reply.script) = appname_dialog(app)
+    return setup_type_json(reply)
+
+def setup_type_dialog(app):
+    setup = DIV(_id="setup-type-form",
+                  _title=T("Select the type of setup you want to perform")
+                 )
+    setup.append(TABLE(
+                       TR(TD(INPUT(_id = "setup_clone",
+                             _name = "setup_type_in",
+                             _type = "radio",
+                             _value = "clone",
+                             _checked = True
+                            )),
+                            TD(LABEL(T("Clone from git hub")))
+                       ),
+                       TR(TD(INPUT(_id = "setup_copy",
+                             _name = "setup_type_in",
+                             _type = "radio",
+                             _value = "copy"
+                            )),
+                          TD(LABEL(T("Copy an existing Eden install")))
+                       ),
+                       TR(TD(INPUT(_id = "setup_use",
+                             _name = "setup_type_in",
+                             _type = "radio",
+                             _value = "use"
+                            )),
+                          TD(LABEL(T("Use an existing unused Eden install")))
+                       ),
+                       TR(TD(INPUT(_id = "setup_update",
+                             _name = "setup_type_in",
+                             _type = "radio",
+                             _value = "update",
+                             _disabled="disabled"
+                            )),
+                          TD(LABEL(T("Update an existing Eden install (requires authentication)")))
+                       ),
+                       TR(TD(),
+                          TD(I(T("Update is not yet enabled")))
+                       )
+                      ),
+                  )
+    script = "static/js/setuptype.js"
+    return (setup.xml(), script)
+
+def setup_type_json(reply):
+    setup_type = request.get_vars.setup_type
+    session.setup_type = setup_type
+    reply.detail = reply.detail + T("Setup type <b>%s</b> selected" % setup_type,
+                                    lazy = False)
+    return json.dumps(reply)
+
+def appname():
+    if not request.ajax:
+        redirect("/%s/default/index" % app)
+
+    setup_type = session.setup_type
+    if setup_type == "clone":
+        reply.next = "git"
+    else:
+        reply.next = "clone"
+    return appname_json(reply)
+
+def appname_dialog(app):
+    appName = DIV(_id="app-name-form",
+                  _title=T("Enter an application name")
+                 )
+    appName.append(P(T("Enter the name you will call your application"),
+                     _class="validateTips"))
+    appName.append(FORM(LABEL(T("Application name")),
+                        INPUT(_id = "appname_in",
+                              _name = "appname_in",
+                              _class="text ui-widget-content ui-corner-all",
+                              value = "test"
+                             )
+                        )
+                   )
+    script = "static/js/appname.js"
+    return (appName.xml(), script)
+
+def appname_json(reply):
+    appname = request.get_vars.appname
+    reply.detail = T("Appname will be <b>%s</b>" % appname, lazy = False)
+    session.appname =  appname
+    path = os.path.join("applications", appname)
+    if os.path.isdir(path):
+        if os.path.isdir(os.path.join(path, ".git")):
+            reply.detail = reply.detail +\
+                           "<br>" +\
+                           T("Directory %s already exists, so %s will not be cloned" % (appname, session.eden_release),
+                                            lazy = False)
+            reply.dialog = "#app-exists-alert"
+            reply.next = "python"
+            return json.dumps(reply)
+    return json.dumps(reply)
+
+def git():
+    if not request.ajax:
+        redirect("/%s/default/index" % app)
+
+    reply.next = "clone"
+    return git_json(reply)
+
+def git_json(reply):
+    from subprocess import Popen, PIPE
+    try:
+        cmd = ["git", "--version"]
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
+        (myout, myerr) = p.communicate()
+        reply.detail = T("Looking for git, <b>found:</b> %s" % myout, lazy = False)
+        reply.advanced = myerr
+    except Exception, inst:
+        reply.result = False
+        reply.fatal = T("Unable to continue, please install git",
+                        lazy=False)
+        reply.detail = "%s<br>" %(reply.fatal)
+        reply.advanced = "<b>command:</b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd), inst)
+    reply.next = "clone"
+    return json.dumps(reply)
+
+def clone():
+    if not request.ajax:
+        redirect("/%s/default/index" % app)
+
+    reply.next = "clone"
+    return git_json(reply)
+
+def clone_json(reply):
+    from subprocess import Popen, PIPE
+    try:
+        appname = session.appname
+        eden = session.eden_release
+        cmd = ["git", "clone", "https://github.com/flavour/eden.git", "applications/%s" % appname]
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
+        (myout, myerr) = p.communicate()
+        retcode = p.returncode
+        if retcode != 0:
+            reply.result = False
+            reply.fatal = T("Unable to clone %s" % eden,
+                            lazy=False)
+            reply.detail = T("Cloning %s into application %s:<b> Failed</b>" % (eden, appname),
+                             lazy = False)
+            reply.advanced = "<b>command: </b>%s<br><b>error:</b> %s<br>" % (" ".join(cmd), myerr)
+        else:
+            reply.detail = T("Cloning %s into application %s: <br>%s" % (eden, appname, myout),
+                             lazy = False)
+            reply.advanced = "<b>command: </b>%s<br>" % (" ".join(cmd))
+    except Exception, inst:
+        reply.result = False
+        reply.fatal = T("Unable to clone %s" % eden,
+                        lazy=False)
+        reply.detail = reply.fatal + "<br>"
+        reply.advanced = "<b>command: </b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd), inst)
+        reply.next = "finished"
+    reply.next = "python"
+    return json.dumps(reply)
