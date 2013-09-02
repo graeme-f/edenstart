@@ -82,7 +82,8 @@ def index():
         except:
             # Python 2.6
             from gluon.contrib.simplejson.ordered_dict import OrderedDict
-        session.eden_release = T("Eden release 1.0")
+        #session.eden_release = T("Eden release 1.0")
+        session.eden_release = T("Eden trunk") # replace once we have a release
         session.fatal = None
         response.title=T("Sahana Eden Web Setup")
         actions = OrderedDict()
@@ -224,6 +225,16 @@ checkRegexp = function (o, regexp, n) {
     } else {
         return true;
     }
+}
+checkRestrict = function(o, n, exclude){
+    for (i=0; i<exclude.length; i++){
+        if (o.val() == exclude[i]){
+            o.addClass("ui-state-error");
+            updateTips(n);
+            return false;
+        }
+    }
+    return true;
 }
 """ % (app)
         # Add input dialogs
@@ -1090,19 +1101,53 @@ def start():
     if not request.ajax:
         redirect("/%s/default/index" % app)
 
+    session.known_apps = get_known_apps() # used by appname
+    session.eden_apps = get_eden_apps()   # used by use_existing
+    reply.detail = "Existing web2py apps are: %s" % session.known_apps
     reply.next = "setup_type"
     reply.dialog = "#setup-type-form"
     (reply.html, reply.script) = setup_type_dialog(app)
     return json.dumps(reply)
 
+def get_known_apps():
+    known_apps = []
+    ls = os.listdir("applications")
+    for obj in ls:
+        path = os.path.join("applications", obj)
+        if os.path.isdir(path):
+            if os.path.isdir(os.path.join(path, ".git")):
+                known_apps.append(obj)
+    return known_apps
+
+def get_eden_apps():
+    eden_apps = []
+    testLine = "Sahana Eden is an Emergency Development Environment"
+    ls = os.listdir("applications")
+    for app in session.known_apps:
+        path = os.path.join("applications", app,"ABOUT")
+        if os.path.isfile(path):
+            file = open(path)
+            if file.read(len(testLine)) == testLine:
+                eden_apps.append(app)
+    return eden_apps
+
 def setup_type():
     if not request.ajax:
         redirect("/%s/default/index" % app)
 
-    reply.next = "appname"
-    reply.dialog = "#app-name-form"
+    setup_type = request.get_vars.setup_type
+    session.setup_type = setup_type
+    reply.detail = reply.detail + T("Setup type <b>%s</b> selected" % setup_type,
+                                    lazy = False)
     (reply.html, reply.script) = appname_dialog(app)
-    return setup_type_json(reply)
+    if session.setup_type == "use":
+        reply.next = "clone"
+    else:
+        reply.next = "appname"
+        print settings.known_apps
+        reply.exclude_list = session.known_apps
+        reply.dialog = "#app-name-form"
+    return json.dumps(reply)
 
 def setup_type_dialog(app):
     setup = DIV(_id="setup-type-form",
@@ -1146,13 +1191,6 @@ def setup_type_dialog(app):
                   )
     script = "static/js/setuptype.js"
     return (setup.xml(), script)
-
-def setup_type_json(reply):
-    setup_type = request.get_vars.setup_type
-    session.setup_type = setup_type
-    reply.detail = reply.detail + T("Setup type <b>%s</b> selected" % setup_type,
-                                    lazy = False)
-    return json.dumps(reply)
 
 def appname():
     if not request.ajax:
@@ -1208,7 +1246,7 @@ def git():
 def git_json(reply):
     from subprocess import Popen, PIPE
     try:
-        cmd = ["git", "--version"]
+        cmd = ["git --version"]
         p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
         (myout, myerr) = p.communicate()
         reply.detail = T("Looking for git, <b>found:</b> %s" % myout, lazy = False)
@@ -1226,15 +1264,21 @@ def clone():
     if not request.ajax:
         redirect("/%s/default/index" % app)
 
-    reply.next = "clone"
-    return git_json(reply)
+    reply.next = "python"
+    return get_eden_json(reply)
+
+def get_eden_json(reply):
+    if session.setup_type == "clone":
+        return clone_json(reply)
+    if session.setup_type == "copy":
+        return copy_json(reply)
 
 def clone_json(reply):
     from subprocess import Popen, PIPE
     try:
         appname = session.appname
         eden = session.eden_release
-        cmd = ["git", "clone", "https://github.com/flavour/eden.git", "applications/%s" % appname]
+        cmd = ["git clone https://github.com/flavour/eden.git applications/%s" % appname]
         p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
         (myout, myerr) = p.communicate()
         retcode = p.returncode
@@ -1244,7 +1288,10 @@ def clone_json(reply):
                             lazy=False)
             reply.detail = T("Cloning %s into application %s:<b> Failed</b>" % (eden, appname),
                              lazy = False)
-            reply.advanced = "<b>command: </b>%s<br><b>error:</b> %s<br>" % (" ".join(cmd), myerr)
+            if myerr == "":
+                reply.advanced = "<b>command: </b>%s<br><b>error:</b> %s<br>" % (" ".join(cmd), myout)
+            else:
+                reply.advanced = "<b>command: </b>%s<br><b>error:</b> %s<br>" % (" ".join(cmd), myerr)
         else:
             reply.detail = T("Cloning %s into application %s: <br>%s" % (eden, appname, myout),
                              lazy = False)
