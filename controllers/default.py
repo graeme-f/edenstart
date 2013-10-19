@@ -6,6 +6,28 @@
          application should be restricted to trusted users.
     Note As a security measure this application can be disabled by setting
          the enabled setting in models/0.py to False
+
+    Path through the installer
+         - start Get some initial data for the AJAX app
+         - setup_type Display the type of installer setup to run.
+           - clone
+             - appname (get the name of the app)
+             - git (check that git is installed)
+             - clone (clone eden from git)
+           - copy
+             *
+           - use
+             *
+           - update
+         * python Check that a suitable version of python exists
+
+    Note: the above is a guide to where work needs to be done
+         - indicates completed
+         * indicated unfinished or requires more testing
+    Note: Each action will have a collection of methods associated with it
+        - The main control method
+        - The dialog method used to get additional information
+        - The reply method used to return the json string
 '''
 
 app = request.application
@@ -1097,7 +1119,34 @@ def check_python_libraries():
 
     return {"error_messages": errors, "warning_messages": warnings}
 
+'''
+    start
+    =====
+    This gets the some of the data that the Ajax app will use
+    It then displays the setup type dialog
+'''
 def start():
+    def get_known_apps():
+        known_apps = []
+        ls = os.listdir("applications")
+        for obj in ls:
+            path = os.path.join("applications", obj)
+            if os.path.isdir(path):
+                if os.path.isdir(os.path.join(path, ".git")):
+                    known_apps.append(obj)
+        return known_apps
+
+    def get_eden_apps():
+        eden_apps = []
+        testLine = "Sahana Eden is an Emergency Development Environment"
+        ls = os.listdir("applications")
+        for app in session.known_apps:
+            path = os.path.join("applications", app,"ABOUT")
+            if os.path.isfile(path):
+                file = open(path)
+                if file.read(len(testLine)) == testLine:
+                    eden_apps.append(app)
+        return eden_apps
     if not request.ajax:
         redirect("/%s/default/index" % app)
 
@@ -1109,28 +1158,11 @@ def start():
     (reply.html, reply.script) = setup_type_dialog(app)
     return json.dumps(reply)
 
-def get_known_apps():
-    known_apps = []
-    ls = os.listdir("applications")
-    for obj in ls:
-        path = os.path.join("applications", obj)
-        if os.path.isdir(path):
-            if os.path.isdir(os.path.join(path, ".git")):
-                known_apps.append(obj)
-    return known_apps
-
-def get_eden_apps():
-    eden_apps = []
-    testLine = "Sahana Eden is an Emergency Development Environment"
-    ls = os.listdir("applications")
-    for app in session.known_apps:
-        path = os.path.join("applications", app,"ABOUT")
-        if os.path.isfile(path):
-            file = open(path)
-            if file.read(len(testLine)) == testLine:
-                eden_apps.append(app)
-    return eden_apps
-
+'''
+    setup_type
+    ==========
+    This will ask the user what type of setup they wish to perform
+'''
 def setup_type():
     if not request.ajax:
         redirect("/%s/default/index" % app)
@@ -1139,14 +1171,18 @@ def setup_type():
     session.setup_type = setup_type
     reply.detail = reply.detail + T("Setup type <b>%s</b> selected" % setup_type,
                                     lazy = False)
-    (reply.html, reply.script) = appname_dialog(app)
-    if session.setup_type == "use":
-        reply.next = "clone"
-    else:
+    if session.setup_type == "clone":
         reply.next = "appname"
-        print settings.known_apps
         reply.exclude_list = session.known_apps
         reply.dialog = "#app-name-form"
+        (reply.html, reply.script) = appname_dialog(app)
+    if session.setup_type == "copy":
+        reply.next = "clone"
+        reply.exclude_list = session.known_apps
+        reply.dialog = "#copy-eden-form"
+        (reply.html, reply.script) = copy_dialog(app)
+    else:
+        reply.next = "clone"
     return json.dumps(reply)
 
 def setup_type_dialog(app):
@@ -1192,7 +1228,28 @@ def setup_type_dialog(app):
     script = "static/js/setuptype.js"
     return (setup.xml(), script)
 
+'''
+    appname
+    =======
+    Used to get from the user the name of the app they will create
+'''
 def appname():
+    def appname_json(reply):
+        appname = request.get_vars.appname
+        reply.detail = T("Appname will be <b>%s</b>" % appname, lazy = False)
+        session.appname =  appname
+        path = os.path.join("applications", appname)
+        if os.path.isdir(path):
+            if os.path.isdir(os.path.join(path, ".git")):
+                reply.detail = reply.detail +\
+                               "<br>" +\
+                               T("Directory %s already exists, so %s will not be cloned" % (appname, session.eden_release),
+                                                lazy = False)
+                reply.dialog = "#app-exists-alert"
+                reply.next = "python"
+                return json.dumps(reply)
+        return json.dumps(reply)
+
     if not request.ajax:
         redirect("/%s/default/index" % app)
 
@@ -1220,88 +1277,153 @@ def appname_dialog(app):
     script = "static/js/appname.js"
     return (appName.xml(), script)
 
-def appname_json(reply):
-    appname = request.get_vars.appname
-    reply.detail = T("Appname will be <b>%s</b>" % appname, lazy = False)
-    session.appname =  appname
-    path = os.path.join("applications", appname)
-    if os.path.isdir(path):
-        if os.path.isdir(os.path.join(path, ".git")):
-            reply.detail = reply.detail +\
-                           "<br>" +\
-                           T("Directory %s already exists, so %s will not be cloned" % (appname, session.eden_release),
-                                            lazy = False)
-            reply.dialog = "#app-exists-alert"
-            reply.next = "python"
-            return json.dumps(reply)
-    return json.dumps(reply)
 
+'''
+    git
+    ===
+    Used to check that git can be accessed from within Python.
+    This is needed if the code is to be cloned from github
+'''
 def git():
+    def git_json(reply):
+        from subprocess import Popen, PIPE
+        try:
+            cmd = ["git --version"]
+            p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
+            (myout, myerr) = p.communicate()
+            reply.detail = T("Looking for git, <b>found:</b> %s" % myout, lazy = False)
+            reply.advanced = myerr
+        except Exception, inst:
+            reply.result = False
+            reply.fatal = T("Unable to continue, please install git",
+                            lazy=False)
+            reply.detail = "%s<br>" %(reply.fatal)
+            reply.advanced = "<b>command:</b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd), inst)
+        reply.next = "clone"
+        return json.dumps(reply)
+
     if not request.ajax:
         redirect("/%s/default/index" % app)
 
     reply.next = "clone"
     return git_json(reply)
 
-def git_json(reply):
-    from subprocess import Popen, PIPE
-    try:
-        cmd = ["git --version"]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
-        (myout, myerr) = p.communicate()
-        reply.detail = T("Looking for git, <b>found:</b> %s" % myout, lazy = False)
-        reply.advanced = myerr
-    except Exception, inst:
-        reply.result = False
-        reply.fatal = T("Unable to continue, please install git",
-                        lazy=False)
-        reply.detail = "%s<br>" %(reply.fatal)
-        reply.advanced = "<b>command:</b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd), inst)
-    reply.next = "clone"
-    return json.dumps(reply)
 
+'''
+    Clone
+    =====
+    This will take a copy of Eden from gitHub and clone it to the appname directrory
+'''
 def clone():
+    def clone_json(reply):
+        from subprocess import Popen, PIPE
+        try:
+            appname = session.appname
+            eden = session.eden_release
+            # @todo: The clone command should be controlled so that different
+            #        sources can be selected.
+            #        This will allow support for releases and local versions.
+            cmd = ["git clone https://github.com/flavour/eden.git applications/%s" % appname]
+            p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
+            (myout, myerr) = p.communicate()
+            retcode = p.returncode
+            if retcode != 0:
+                reply.result = False
+                reply.fatal = T("Unable to clone %s" % eden,
+                                lazy=False)
+                reply.detail = T("Cloning %s into application %s:<b> Failed</b>" % (eden, appname),
+                                 lazy = False)
+                if myerr == "":
+                    reply.advanced = "<b>command: </b>%s<br><b>error:</b> %s<br>" % (" ".join(cmd), myout)
+                else:
+                    reply.advanced = "<b>command: </b>%s<br><b>error:</b> %s<br>" % (" ".join(cmd), myerr)
+            else:
+                reply.detail = T("Cloning %s into application %s: <br>%s" % (eden, appname, myout),
+                                 lazy = False)
+                reply.advanced = "<b>command: </b>%s<br>" % (" ".join(cmd))
+        except Exception, inst:
+            reply.result = False
+            reply.fatal = T("Unable to clone %s" % eden,
+                            lazy=False)
+            reply.detail = reply.fatal + "<br>"
+            reply.advanced = "<b>command: </b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd), inst)
+            reply.next = "finished"
+        return json.dumps(reply)
+
     if not request.ajax:
         redirect("/%s/default/index" % app)
 
     reply.next = "python"
-    return get_eden_json(reply)
+    return clone_json(reply)
 
-def get_eden_json(reply):
-    if session.setup_type == "clone":
-        return clone_json(reply)
-    if session.setup_type == "copy":
-        return copy_json(reply)
-
-def clone_json(reply):
-    from subprocess import Popen, PIPE
-    try:
-        appname = session.appname
-        eden = session.eden_release
-        cmd = ["git clone https://github.com/flavour/eden.git applications/%s" % appname]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
-        (myout, myerr) = p.communicate()
-        retcode = p.returncode
-        if retcode != 0:
+'''
+    Copy
+    ====
+    This will take a copy of an existing install of Eden
+'''
+def copy():
+    def copy_json(reply):
+        old_appname = request.get_vars.copy_appname
+        new_appname = request.get_vars.appname
+        from shutil import copytree, ignore_patterns
+        source = os.path.join("applications", old_appname)
+        destination = os.path.join("applications", new_appname)
+        try:
+            copytree(source, destination, ignore=ignore_patterns("errors*", "databases*", "sessions", "uploads*"))
+            reply.detail = T("Eden directory has been <b>successfully</b> copied into %s" % new_appname,
+                              lazy=False)
+        except Exception, inst:
             reply.result = False
-            reply.fatal = T("Unable to clone %s" % eden,
+            reply.fatal = T("Unable to copy %s" % new_appname,
                             lazy=False)
-            reply.detail = T("Cloning %s into application %s:<b> Failed</b>" % (eden, appname),
-                             lazy = False)
-            if myerr == "":
-                reply.advanced = "<b>command: </b>%s<br><b>error:</b> %s<br>" % (" ".join(cmd), myout)
-            else:
-                reply.advanced = "<b>command: </b>%s<br><b>error:</b> %s<br>" % (" ".join(cmd), myerr)
-        else:
-            reply.detail = T("Cloning %s into application %s: <br>%s" % (eden, appname, myout),
-                             lazy = False)
-            reply.advanced = "<b>command: </b>%s<br>" % (" ".join(cmd))
-    except Exception, inst:
-        reply.result = False
-        reply.fatal = T("Unable to clone %s" % eden,
-                        lazy=False)
-        reply.detail = reply.fatal + "<br>"
-        reply.advanced = "<b>command: </b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd), inst)
-        reply.next = "finished"
+            reply.detail = reply.fatal + "<br>"
+            reply.advanced = "<b>command: </b>copytree(%s, %s,ignore=ignore_patterns(\"errors*\", \"databases*\", \"sessions\", \"uploads*\"))<br><b>exception:</b>%s<br>" % (source, destination, inst)
+            reply.next = "finished"
+        return json.dumps(reply)
+
+    if not request.ajax:
+        redirect("/%s/default/index" % app)
+
+    session.old_appname = request.get_vars.copy_appname
+    session.new_appname = request.get_vars.appname
     reply.next = "python"
+    return copy_json(reply)
+
+def copy_dialog(app):
+    copy = DIV(_id="copy-eden-form",
+                  _title=T("Copy Eden")
+                 )
+    copy_table = TABLE()
+    copy_table.append(TD(T("Select the eden application you want to copy")))
+    copy.append(copy_table)
+    copy_table = TABLE()
+    for eden in session.eden_apps:
+        copy_table.append(TR(TD(INPUT(_id = "app_%s" % eden,
+                                      _name = "app_name_in",
+                                      _type = "radio",
+                                      _value = eden,
+                                      _checked = True
+                                      )),
+                            TD(LABEL(eden))
+                       ))
+    copy.append(copy_table)
+    copy_table = TABLE()
+    copy_table.append(TD(T("Enter the name you will call your application"),
+                      _class="validateTips",
+                      _colspan = 2),
+                     )
+    copy_table.append(TR(TD(LABEL(T("Name"))),
+                         TD(INPUT(_id = "appname_in",
+                                  _name = "appname_in",
+                                  _class="text ui-widget-content ui-corner-all",
+                                  value = "test"
+                                  )
+                            )
+                        )
+                   )
+    copy.append(copy_table)
+    script = "static/js/copyapp.js"
+    return (copy.xml(), script)
+
+def use_json(reply):
     return json.dumps(reply)
