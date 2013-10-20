@@ -2,13 +2,16 @@ btnName = "Continue";
 args = new Object();
 
 $(function() {
-    $("#setup-type-form").dialog({
+    var appname = $("#appname_in"),
+        allFields = $([]).add(appname),
+        tips = $(".validateTips");
+    $("#use-eden-form").dialog({
         autoOpen: false,
         width: 550,
         buttons: [{
             text: btnName,
             click: function() {
-                args['setup_type'] = $("input:radio[name=setup_type_in]:checked").val();
+                args['appname'] = $("input:radio[name=app_name_in]:checked").val();
                 $(this).dialog("close");
                 $.get('/'+app+'/default/'+data.next, args).done(function(data){success(data)});
             }

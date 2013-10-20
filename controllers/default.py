@@ -13,21 +13,28 @@
            - clone
              - appname (get the name of the app)
              - git (check that git is installed)
-             - clone (clone eden from git)
+             - clone (clone Eden from git)
            - copy
-             *
+             - copy (copy an existing version of Eden into a new folder)
+             * update (Update the copy of Eden if required)
            - use
-             *
+             - use an existing copy of Eden
            - update
-         * python Check that a suitable version of python exists
+         * python (Check that the required python libraries have been installed)
+           * pip (Attempt to install all libraries that are required)
+         * database (Find out what type of database will be used)
 
     Note: the above is a guide to where work needs to be done
          - indicates completed
          * indicated unfinished or requires more testing
     Note: Each action will have a collection of methods associated with it
         - The main control method
-        - The dialog method used to get additional information
         - The reply method used to return the json string
+        - The dialog method used to get additional information (optional)
+
+    @todo: Add a generic Ajax enabled progress bar and then add it
+           to the "long processes", such as clone, copy, library install
+    @todo: make check_python_libraries() a separate function in s3_update_check
 '''
 
 app = request.application
@@ -610,87 +617,6 @@ $(function() {
 ''' % (T("Continue"), app)
     return script
 
-def python_json(reply):
-    result = check_python_libraries()
-    reply.next = "database"
-    libs_missing = False
-    error_lib = []
-    warning_lib = []
-    if result["error_messages"]:
-        for error in result["error_messages"]:
-            error_lib.append(strip_lib(error))
-            reply.detail = reply.detail + "<b>Error:</b> %s<br>" % error
-            reply.advanced = reply.advanced + "<b>Error:</b> %s<br>" % error
-            libs_missing = True
-            reply.next = "pip"
-    if result["warning_messages"]:
-        for warning in result["warning_messages"]:
-            warning_lib.append(strip_lib(warning))
-            reply.advanced = reply.advanced + "<b>Warning:</b> %s<br>" % warning
-            libs_missing = True
-            reply.next = "pip"
-    if libs_missing:
-        session.error_lib = error_lib
-        session.warning_lib = warning_lib
-        table = TABLE()
-        app = request.application
-        for lib in error_lib:
-            table.append(TR(
-                            TD(IMG(_src="/%s/static/images/red_star.png" % app,
-                                   _width=24, _height=24),
-                               T("Install python library %s" % lib), _id="%s" % lib),
-                            TD(IMG(_id="%s_wait" % lib,
-                                   _src="/%s/static/images/Waiting.png" % app,
-                                   _width=24, _height=24),
-                               IMG(_id="%s_process" % lib,
-                                   _src="/%s/static/images/ajax-loader.gif" % app,
-                                   _width=24, _height=24,
-                                   _class="hidden",
-                                   _style="display: none"),
-                               IMG(_id="%s_pass" % lib,
-                                   _src="/%s/static/images/Pass.png" % app,
-                                   _width=24, _height=24,
-                                   _class="hidden",
-                                   _style="display: none"),
-                               IMG(_id="%s_fail" % lib,
-                                   _src="/%s/static/images/Fail.png" % app,
-                                   _width=24, _height=24,
-                                   _class="hidden",
-                                   _style="display: none")
-                              )
-                           )
-                        )
-        for lib in warning_lib:
-            table.append(TR(
-                            TD(IMG(_src="/%s/static/images/yellow_star.png" % app,
-                                   _width=16, _height=16),
-                               T("Install python library %s" % lib), _id="%s" % lib),
-                            TD(IMG(_id="%s_wait" % lib,
-                                   _src="/%s/static/images/Waiting.png" % app,
-                                   _width=24, _height=24),
-                               IMG(_id="%s_process" % lib,
-                                   _src="/%s/static/images/ajax-loader.gif" % app,
-                                   _width=24, _height=24,
-                                   _class="hidden",
-                                   _style="display: none"),
-                               IMG(_id="%s_pass" % lib,
-                                   _src="/%s/static/images/Pass.png" % app,
-                                   _width=24, _height=24,
-                                   _class="hidden",
-                                   _style="display: none"),
-                               IMG(_id="%s_fail" % lib,
-                                   _src="/%s/static/images/Fail.png" % app,
-                                   _width=24, _height=24,
-                                   _class="hidden",
-                                   _style="display: none")
-                              )
-                           )
-                        )
-        reply.insert_basic = True
-        reply.insert_basic_html = table.xml()
-        reply.insert_basic_id = "install"
-        reply.dialog = "#missing-libs-alert"
-    return json.dumps(reply)
 
 def pip_json(reply):
     from subprocess import Popen, PIPE
@@ -1035,89 +961,6 @@ def set_000_config(attr, value, comment=False):
     with open(base_cfg_file, 'w') as file:
         file.writelines( data )
 
-def check_python_libraries():
-    ''' 
-        @todo: make this a separate function in s3_upade_check so that it can be reused
-
-        it will be called as follows:
-
-            from gluon.shell import exec_environment
-            appname = session.appname
-            module = "applications/%s/modules/s3_update_check.py" % appname
-            s3check = exec_environment(module)
-            result = s3check.check_python_libraries()
-
-    ''' 
-    # Fatal errors
-    errors = []
-    # Non-fatal warnings
-    warnings = []
-
-    # -------------------------------------------------------------------------
-    # Check Python libraries
-    try:
-        import dateutil
-    except ImportError:
-        errors.append("S3 unresolved dependency: python-dateutil required for Sahana to run")
-    try:
-        import lxml
-    except ImportError:
-        errors.append("S3XML unresolved dependency: lxml required for Sahana to run")
-    try:
-        import shapely
-    except ImportError:
-        warnings.append("S3GIS unresolved dependency: shapely required for GIS support")
-    try:
-        import xlrd
-    except ImportError:
-        warnings.append("S3XLS unresolved dependency: xlrd required for XLS import")
-    try:
-        import xlwt
-    except ImportError:
-        warnings.append("S3XLS unresolved dependency: xlwt required for XLS export")
-    try:
-        from PIL import Image
-    except ImportError:
-        try:
-            import Image
-        except ImportError:
-            warnings.append("S3PDF unresolved dependency: PIL (Python Imaging Library) required for PDF export")
-    try:
-        import reportlab
-    except ImportError:
-        warnings.append("S3PDF unresolved dependency: reportlab required for PDF export")
-    try:
-        from osgeo import ogr
-    except ImportError:
-        warnings.append("S3GIS unresolved dependency: GDAL required for Shapefile support")
-    try:
-        import tweepy
-    except ImportError:
-        warnings.append("S3Msg unresolved dependency: tweepy required for non-Tropo Twitter support")
-    try:
-        import sunburnt
-    except ImportError, inst:
-        warnings.append("S3Doc unresolved dependency: sunburnt required for Full-Text Search support")
-    try:
-        import pyth
-    except ImportError:
-        warnings.append("S3Doc unresolved dependency: pyth required for RTF document support in Full-Text Search")
-    try:
-        import matplotlib
-    except ImportError:
-        msg = "S3Chart unresolved dependency: matplotlib required for charting in Survey module"
-        warnings.append(msg)
-    try:
-        import PyRTF
-    except ImportError:
-        msg = "Survey unresolved dependency: PyRTF required if you want to export assessment/survey templates as a Word document"
-        warnings.append(msg)
-    try:
-        import numpy
-    except ImportError:
-        warnings.append("Vulnerability unresolved dependency: numpy required for Vulnerability module support")
-
-    return {"error_messages": errors, "warning_messages": warnings}
 
 '''
     start
@@ -1176,13 +1019,17 @@ def setup_type():
         reply.exclude_list = session.known_apps
         reply.dialog = "#app-name-form"
         (reply.html, reply.script) = appname_dialog(app)
-    if session.setup_type == "copy":
-        reply.next = "clone"
+    elif session.setup_type == "copy":
+        reply.next = "copy"
         reply.exclude_list = session.known_apps
         reply.dialog = "#copy-eden-form"
         (reply.html, reply.script) = copy_dialog(app)
+    elif session.setup_type == "use":
+        reply.next = "use"
+        reply.dialog = "#use-eden-form"
+        (reply.html, reply.script) = use_dialog(app)
     else:
-        reply.next = "clone"
+        reply.next = "finish"
     return json.dumps(reply)
 
 def setup_type_dialog(app):
@@ -1425,5 +1272,218 @@ def copy_dialog(app):
     script = "static/js/copyapp.js"
     return (copy.xml(), script)
 
-def use_json(reply):
-    return json.dumps(reply)
+'''
+    Use
+    ===
+    Select an unused install to set up
+'''
+def use():
+    def use_json(reply):
+        session.appname = request.get_vars.appname
+        reply.detail = T("Using application %s" % session.appname, lazy=False)
+        return json.dumps(reply)
+
+    if not request.ajax:
+        redirect("/%s/default/index" % app)
+
+    reply.next = "python"
+    return use_json(reply)
+
+def use_dialog(app):
+    use = DIV(_id="use-eden-form",
+              _title=T("Copy Eden")
+             )
+    use_table = TABLE()
+    use_table.append(TD(T("Select the eden application you want to use")))
+    use.append(use_table)
+    use_table = TABLE()
+    for eden in session.eden_apps:
+        # @todo only add to list if editing_finished is false in 000_config
+        use_table.append(TR(TD(INPUT(_id = "app_%s" % eden,
+                                      _name = "app_name_in",
+                                      _type = "radio",
+                                      _value = eden,
+                                      _checked = True
+                                      )),
+                            TD(LABEL(eden))
+                       ))
+    use.append(use_table)
+    script = "static/js/useapp.js"
+    return (use.xml(), script)
+
+'''
+    Python
+    ======
+    Check thatthe required python libraries are installed
+
+    @todo: use T() for all strings...
+'''
+def python():
+    def python_json(reply):
+        result = check_python_libraries()
+        reply.next = "database"
+        libs_missing = False
+        error_lib = []
+        warning_lib = []
+        if result["error_messages"]:
+            for error in result["error_messages"]:
+                error_lib.append(strip_lib(error))
+                reply.detail = reply.detail + "<b>Error:</b> %s<br>" % error
+                reply.advanced = reply.advanced + "<b>Error:</b> %s<br>" % error
+                libs_missing = True
+        else:
+            reply.detail = T("No essential libraries missing", lazy=False)
+        if result["warning_messages"]:
+            for warning in result["warning_messages"]:
+                warning_lib.append(strip_lib(warning))
+                reply.advanced = reply.advanced + "<b>Warning:</b> %s<br>" % warning
+                libs_missing = True
+        if libs_missing:
+            reply.next = "pip"
+            session.error_lib = error_lib
+            session.warning_lib = warning_lib
+            table = TABLE()
+            app = request.application
+            for lib in error_lib:
+                table.append(TR(
+                                TD(IMG(_src="/%s/static/images/red_star.png" % app,
+                                       _width=24, _height=24),
+                                   T("Install python library %s" % lib), _id="%s" % lib),
+                                TD(IMG(_id="%s_wait" % lib,
+                                       _src="/%s/static/images/Waiting.png" % app,
+                                       _width=24, _height=24),
+                                   IMG(_id="%s_process" % lib,
+                                       _src="/%s/static/images/ajax-loader.gif" % app,
+                                       _width=24, _height=24,
+                                       _class="hidden",
+                                       _style="display: none"),
+                                   IMG(_id="%s_pass" % lib,
+                                       _src="/%s/static/images/Pass.png" % app,
+                                       _width=24, _height=24,
+                                       _class="hidden",
+                                       _style="display: none"),
+                                   IMG(_id="%s_fail" % lib,
+                                       _src="/%s/static/images/Fail.png" % app,
+                                       _width=24, _height=24,
+                                       _class="hidden",
+                                       _style="display: none")
+                                  )
+                               )
+                            )
+            for lib in warning_lib:
+                table.append(TR(
+                                TD(IMG(_src="/%s/static/images/yellow_star.png" % app,
+                                       _width=16, _height=16),
+                                   T("Install python library %s" % lib), _id="%s" % lib),
+                                TD(IMG(_id="%s_wait" % lib,
+                                       _src="/%s/static/images/Waiting.png" % app,
+                                       _width=24, _height=24),
+                                   IMG(_id="%s_process" % lib,
+                                       _src="/%s/static/images/ajax-loader.gif" % app,
+                                       _width=24, _height=24,
+                                       _class="hidden",
+                                       _style="display: none"),
+                                   IMG(_id="%s_pass" % lib,
+                                       _src="/%s/static/images/Pass.png" % app,
+                                       _width=24, _height=24,
+                                       _class="hidden",
+                                       _style="display: none"),
+                                   IMG(_id="%s_fail" % lib,
+                                       _src="/%s/static/images/Fail.png" % app,
+                                       _width=24, _height=24,
+                                       _class="hidden",
+                                       _style="display: none")
+                                  )
+                               )
+                            )
+            reply.insert_basic = True
+            reply.insert_basic_html = table.xml()
+            reply.insert_basic_id = "install"
+            reply.dialog = "#missing-libs-alert"
+        return json.dumps(reply)
+
+    return python_json(reply)
+
+def check_python_libraries():
+    '''
+        @todo: make this a separate function in s3_update_check so that it can be reused
+
+        it will be called as follows:
+
+            from gluon.shell import exec_environment
+            appname = session.appname
+            module = "applications/%s/modules/s3_update_check.py" % appname
+            s3check = exec_environment(module)
+            result = s3check.check_python_libraries()
+
+    '''
+    # Fatal errors
+    errors = []
+    # Non-fatal warnings
+    warnings = []
+
+    # -------------------------------------------------------------------------
+    # Check Python libraries
+    try:
+        import dateutil
+    except ImportError:
+        errors.append("S3 unresolved dependency: python-dateutil required for Sahana to run")
+    try:
+        import lxml
+    except ImportError:
+        errors.append("S3XML unresolved dependency: lxml required for Sahana to run")
+    try:
+        import shapely
+    except ImportError:
+        warnings.append("S3GIS unresolved dependency: shapely required for GIS support")
+    try:
+        import xlrd
+    except ImportError:
+        warnings.append("S3XLS unresolved dependency: xlrd required for XLS import")
+    try:
+        import xlwt
+    except ImportError:
+        warnings.append("S3XLS unresolved dependency: xlwt required for XLS export")
+    try:
+        from PIL import Image
+    except ImportError:
+        try:
+            import Image
+        except ImportError:
+            warnings.append("S3PDF unresolved dependency: PIL (Python Imaging Library) required for PDF export")
+    try:
+        import reportlab
+    except ImportError:
+        warnings.append("S3PDF unresolved dependency: reportlab required for PDF export")
+    try:
+        from osgeo import ogr
+    except ImportError:
+        warnings.append("S3GIS unresolved dependency: GDAL required for Shapefile support")
+    try:
+        import tweepy
+    except ImportError:
+        warnings.append("S3Msg unresolved dependency: tweepy required for non-Tropo Twitter support")
+    try:
+        import sunburnt
+    except ImportError, inst:
+        warnings.append("S3Doc unresolved dependency: sunburnt required for Full-Text Search support")
+    try:
+        import pyth
+    except ImportError:
+        warnings.append("S3Doc unresolved dependency: pyth required for RTF document support in Full-Text Search")
+    try:
+        import matplotlib
+    except ImportError:
+        msg = "S3Chart unresolved dependency: matplotlib required for charting in Survey module"
+        warnings.append(msg)
+    try:
+        import PyRTF
+    except ImportError:
+        msg = "Survey unresolved dependency: PyRTF required if you want to export assessment/survey templates as a Word document"
+        warnings.append(msg)
+    try:
+        import numpy
+    except ImportError:
+        warnings.append("Vulnerability unresolved dependency: numpy required for Vulnerability module support")
+
+    return {"error_messages": errors, "warning_messages": warnings}

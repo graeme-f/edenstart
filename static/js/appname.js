@@ -20,7 +20,7 @@ $(function() {
                 if ( bValid ) {
                     args['appname'] = appname.val();
                     $( this ).dialog("close");
-                    $.get('/'+app+'/default/appname', args).done(function(data){success(data)});
+                    $.get('/'+app+'/default/'+data.next, args).done(function(data){success(data)});
                 }
             }
         }],
