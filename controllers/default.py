@@ -882,7 +882,13 @@ def strip_lib(msg):
     lib = msg[start:finish]
     return lib
 
-def load_000_config():
+
+'''
+    check_000_config
+    ==============
+    Check that the config file exists, and read the contents if it does
+'''
+def check_000_config():
     appname = session.appname
     # Read in the 000_config file
     base_cfg_file = "applications/%s/models/000_config.py" % appname
@@ -891,6 +897,18 @@ def load_000_config():
         with open(base_cfg_file, "r") as file:
             data = file.readlines()
     except:
+        return False
+    return data
+
+
+'''
+    load_000_config
+    ==============
+    Load the config file, if it doesn't exist create it and then read the contents
+'''
+def load_000_config():
+    data = check_000_config()
+    if data == False:
         # No file so need to copy from templates
         # NOTE this code was copied from s3_upade_check (see check_python_libraries @todo)
         template_cfg_file = "applications/%s/private/templates/000_config.py" % appname
@@ -911,6 +929,11 @@ def load_000_config():
             data = file.readlines()
     return data
 
+'''
+    get_000_config
+    ==============
+    Get an attribute from the config file
+'''
 def get_000_config(attr, default=None):
     data = load_000_config()
     if attr[-1] != " ":
@@ -918,21 +941,32 @@ def get_000_config(attr, default=None):
     value = default
     for line in data:
         if attr in line and line[0] != "#":
-            endvalue =line[line.rfind("= ")+2:]
+            endvalue =line[line.rfind("= ")+2:-1]
             try:
                 value = endvalue.split('"')[1]
-            except: # value is not a string but a number so
-                value = int(endvalue)
+            except: # value is not a string is it a number
+                try:
+                    value = int(endvalue)
+                except: # could the value be a boolean
+                    if endvalue == "True":
+                        value = True
+                    else:
+                        value = False
     return value
 
+
+'''
+    set_000_config
+    ==============
+    Set an attribute in the config file with the given value
+'''
 def set_000_config(attr, value, comment=False):
     if attr[-1] != " ":
         attr = attr + " "
     # Read in the 000_config file
-    appname = session.appname
-    base_cfg_file = "applications/%s/models/000_config.py" % appname
-    with open(base_cfg_file, "r") as file:
-        data = file.readlines()
+    data = check_000_config()
+    if data == False:
+        return False
     added = False
     attr_found = False
     cnt = 0
@@ -958,6 +992,9 @@ def set_000_config(attr, value, comment=False):
         else:
             # add the attr at the end of the file
             data.append("settings.%s = %s\n" % (attr, value))
+
+    appname = session.appname
+    base_cfg_file = "applications/%s/models/000_config.py" % appname
     with open(base_cfg_file, 'w') as file:
         file.writelines( data )
 
@@ -1297,8 +1334,12 @@ def use_dialog(app):
     use_table.append(TD(T("Select the eden application you want to use")))
     use.append(use_table)
     use_table = TABLE()
+    appname = session.appname
     for eden in session.eden_apps:
-        # @todo only add to list if editing_finished is false in 000_config
+        session.appname = eden
+        if check_000_config():
+            if get_000_config("FINISHED_EDITING_CONFIG_FILE"):
+                continue
         use_table.append(TR(TD(INPUT(_id = "app_%s" % eden,
                                       _name = "app_name_in",
                                       _type = "radio",
@@ -1307,6 +1348,7 @@ def use_dialog(app):
                                       )),
                             TD(LABEL(eden))
                        ))
+    session.appname = appname
     use.append(use_table)
     script = "static/js/useapp.js"
     return (use.xml(), script)
