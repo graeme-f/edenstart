@@ -153,7 +153,9 @@ success = function(_data){
     data = $.parseJSON(_data) // Global scope so that dialog events can access it
     if (data.html) {$("#dialogs").html(data.html);};
     if (data.script){
-        $.getScript(data.script,function(){dashboard_update();});
+        $.getScript(data.script)
+           .done(function(){dashboard_update();})
+           .fail(function( jqxhr, settings, exception ) {throw exception;});
     } else {
         dashboard_update();
     }
@@ -306,83 +308,9 @@ $(function() {
 """ % (T("Continue"), app, T("Cancel"))
     return script
 
-def pip_dialog(app):
-    existsName = DIV(_id="missing-libs-alert",
-                     _title=T("Missing Libraries")
-                   )
-    existsName.append(P(T("Some libraries that Eden uses are missing. Would you like the system to try and install them for you? To do this it is necessary to have pip installed.")))
-    response.dialogs.append(existsName)
-    script = """
-$(function() {
-    $("#missing-libs-alert").dialog({
-        autoOpen: false,
-        modal: true,
-        buttons: {
-            %s: function() {
-                $( this ).dialog("close");
-                args['button'] = "install";
-                $.get('/%s/default/index', args).done(function(data){success(data)});
-            },
-            %s: function() {
-                $( this ).dialog("close");
-                args['button'] = "skip";
-                $.get('/%s/default/index', args).done(function(data){success(data)});
-            }
-        },
-    });
-});
-""" % (T("Install"), app, T("Skip"), app)
-    return script
 
-def db_type_dialog(app):
-    dbType = DIV(_id="db-type-form",
-                  _title=T("Database type")
-                 )
-    dbType.append(P(T("Select the type of database that will be used.")))
-    dbType.append(TABLE(
-                        TR( TD(INPUT(_id = "dbtype_sqlite",
-                             _name = "dbtype_in",
-                             _type = "radio",
-                             _value = "sqlite"
-                            )),
-                            TD(LABEL(T("Sqlite")))
-                        ),
-                       TR( TD(INPUT(_id = "dbtype_mysql",
-                             _name = "dbtype_in",
-                             _type = "radio",
-                             _value = "mysql"
-                            )),
-                          TD(LABEL(T("MySql")))
-                       ),
-                       TR(TD(INPUT(_id = "dbtype_postgres",
-                             _name = "dbtype_in",
-                             _type = "radio",
-                             _value = "postgres"
-                            )),
-                          TD(LABEL(T("PostgeSQL")))
-                       )
-                      ),
-                  )
-    response.dialogs.append(dbType)
-    script = '''
-$(function() {
-    $("#db-type-form").dialog({
-        autoOpen: false,
-        modal: true,
-        buttons: {
-            %s: function() {
-                args['db_type'] = $("input:radio[name=dbtype_in]:checked").val();
-                $( this ).dialog("close");
-                $.get('/%s/default/index', args).done(function(data){success(data)});
-            }
-        },
-        open: function (event, ui){
-            $("input:radio[name=dbtype_in]").filter('[value="'+data.db_type+'"]').attr('checked', true); 
-        }
-    });
-});
-''' % (T("Continue"), app)
-    return script
+
+
 
 def connect_dialog(app):
     appName = DIV(_id="db-connect-form",
@@ -618,120 +546,7 @@ $(function() {
     return script
 
 
-def pip_json(reply):
-    from subprocess import Popen, PIPE
-    import platform
-    windows = platform.system() == "Windows"
-    try:
-        cmd = ["pip", "--version"]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=windows)
-        (myout, myerr) = p.communicate()
-        if p.returncode == 0:
-            reply.detail = T("Looking for pip, <b>found:</b> %s" % myout.replace('\n', '<br />'),
-                             lazy = False)
-            reply.advanced = myerr
-        else:
-            reply.fatal = T("Unable to continue, please install pip",
-                            lazy=False)
-            reply.detail = "%s<br>" %(reply.fatal)
-            reply.advanced = "<b>command:</b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd),
-                                                                               myout.replace('\n', '<br />'))
-    except Exception, inst:
-        reply.result = False
-        reply.fatal = T("Unable to continue, please install pip",
-                        lazy=False)
-        reply.detail = "%s<br>" %(reply.fatal)
-        reply.advanced = "<b>command:</b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd), inst)
-        return json.dumps(reply)
-    # Now see if the version of pip supports the --target install option
-    cmd = ["pip", "install", "--target"]
-    p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=windows)
-    (myout, myerr) = p.communicate()
-    if "no such option" in myerr:
-        reply.result = False
-        reply.fatal = T("The version of pip needs to be upgraded. Use 'pip install -U pip' as admin.",
-                        lazy=False)
-        reply.detail = reply.detail +\
-                       "<br>" +\
-                       "%s<br>" %(reply.fatal)
-        reply.advanced = reply.advanced +\
-                         "<b>command:</b>%s<br><b>error:</b>%s<br>" % (" ".join(cmd), myerr)
-    else:
-        reply.detail = reply.detail +\
-                       "<br>" +\
-                       T("Looking for pip install --target option, <b>found:</b>", lazy = False)
-        reply.next = "install"
-        if session.error_lib:
-            reply.nextsubaction = session.error_lib[-1]
-        elif session.warning_lib:
-            reply.nextsubaction = session.warning_lib[-1]
-    return json.dumps(reply)
 
-def install_json(reply):
-    '''
-        This function will attempt to install the missing libraries
-        Because of the time it takes to install each library it will
-        do one at a time and then send the result back as an json string 
-    '''
-    def pip_install(reply, lib, fatal):
-        '''
-            Function that will use pip to attempt to install the missing python library 
-        '''
-        from subprocess import Popen, PIPE
-        import platform
-        windows = (platform.system() == "Windows")
-
-        target = os.path.join(request.env.web2py_path, "site-packages")
-        cmd = ["pip", "install", "--target", target, lib]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=windows)
-        (myout, myerr) = p.communicate()
-        if p.returncode == 0:
-            reply.detail = reply.detail + "<br>"+T("Installed <b>%s</b> library" % lib,
-                                                   lazy = False)
-            reply.advanced = reply.advanced +\
-                            "<b>command:</b>%s<br>" % (" ".join(cmd))
-        else:
-            reply.detail = reply.detail + "<br>"+T("Failed to install <b>%s</b> library." % (lib),
-                                                   lazy = False)
-            reply.advanced = reply.advanced +\
-                            "<b>command:</b>%s<br><b>error:</b>%s<br>%s<br>" % (" ".join(cmd),
-                                                                          myout.replace('\n', '<br />'),
-                                                                          myerr.replace('\n', '<br />'))
-            if fatal:
-                session.fatal = T("Failed to install all of the required libraries",
-                                lazy=False)
-            reply.result = False
-        return reply
-    # Install a required lib, if one exists
-    lib = None
-    if session.error_lib:
-        lib = session.error_lib.pop()
-        reply = pip_install(reply, lib, True)
-    # Install an optional lib, if one exists
-    elif session.warning_lib:
-        lib = session.warning_lib.pop()
-        reply = pip_install(reply, lib, False)
-    if lib:
-        reply.subaction = lib
-        if session.error_lib:
-            reply.nextsubaction = session.error_lib[-1]
-        elif session.warning_lib:
-            reply.nextsubaction = session.warning_lib[-1]
-        reply.next = "install"
-    else:
-        if session.fatal:
-            reply.fatal = session.fatal
-            reply.result = False
-        return pre_db_json(reply)
-    return json.dumps(reply)
-
-
-def pre_db_json(reply):
-    reply.dialog = "#db-type-form"
-    reply.next = "database"
-    db_type = get_000_config("db_type", "sqlite")
-    reply.db_type = db_type
-    return json.dumps(reply)
 
 def db_json(reply):
     db_type = request.get_vars.db_type
@@ -907,11 +722,13 @@ def check_000_config():
     Load the config file, if it doesn't exist create it and then read the contents
 '''
 def load_000_config():
+    appname = session.appname
     data = check_000_config()
     if data == False:
         # No file so need to copy from templates
         # NOTE this code was copied from s3_upade_check (see check_python_libraries @todo)
         template_cfg_file = "applications/%s/private/templates/000_config.py" % appname
+        base_cfg_file = "applications/%s/models/000_config.py" % appname
         input = open(template_cfg_file)
         output = open(base_cfg_file, "w")
         for line in input:
@@ -1336,7 +1153,7 @@ def use_dialog(app):
     use_table = TABLE()
     appname = session.appname
     for eden in session.eden_apps:
-        session.appname = eden
+        session.appname = eden # set session.appname to access the config file
         if check_000_config():
             if get_000_config("FINISHED_EDITING_CONFIG_FILE"):
                 continue
@@ -1348,7 +1165,7 @@ def use_dialog(app):
                                       )),
                             TD(LABEL(eden))
                        ))
-    session.appname = appname
+    session.appname = appname # reset session.appname
     use.append(use_table)
     script = "static/js/useapp.js"
     return (use.xml(), script)
@@ -1356,7 +1173,7 @@ def use_dialog(app):
 '''
     Python
     ======
-    Check thatthe required python libraries are installed
+    Check that the required python libraries are installed
 
     @todo: use T() for all strings...
 '''
@@ -1442,6 +1259,8 @@ def python():
             reply.insert_basic_html = table.xml()
             reply.insert_basic_id = "install"
             reply.dialog = "#missing-libs-alert"
+            (reply.html, reply.script) = pip_dialog(app)
+
         return json.dumps(reply)
 
     return python_json(reply)
@@ -1529,3 +1348,174 @@ def check_python_libraries():
         warnings.append("Vulnerability unresolved dependency: numpy required for Vulnerability module support")
 
     return {"error_messages": errors, "warning_messages": warnings}
+
+'''
+    Pip
+    ======
+    Check that pip is installed so that it can install the required python libraries
+'''
+def pip():
+    def pip_json(reply):
+        from subprocess import Popen, PIPE
+        import platform
+        windows = platform.system() == "Windows"
+        try:
+            cmd = ["pip", "--version"]
+            p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=windows)
+            (myout, myerr) = p.communicate()
+            if p.returncode == 0:
+                reply.detail = T("Looking for pip, <b>found:</b> %s" % myout.replace('\n', '<br />'),
+                                 lazy = False)
+                reply.advanced = myerr
+            else:
+                reply.fatal = T("Unable to continue, please install pip",
+                                lazy=False)
+                reply.detail = "%s<br>" %(reply.fatal)
+                reply.advanced = "<b>command:</b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd),
+                                                                                   myout.replace('\n', '<br />'))
+        except Exception, inst:
+            reply.result = False
+            reply.fatal = T("Unable to continue, please install pip",
+                            lazy=False)
+            reply.detail = "%s<br>" %(reply.fatal)
+            reply.advanced = "<b>command:</b>%s<br><b>exception:</b>%s<br>" % (" ".join(cmd), inst)
+            return json.dumps(reply)
+        # Now see if the version of pip supports the --target install option
+        cmd = ["pip", "install", "--target"]
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=windows)
+        (myout, myerr) = p.communicate()
+        if "no such option" in myerr:
+            reply.result = False
+            reply.fatal = T("The version of pip needs to be upgraded. Use 'pip install -U pip' as admin.",
+                            lazy=False)
+            reply.detail = reply.detail +\
+                           "<br>" +\
+                           "%s<br>" %(reply.fatal)
+            reply.advanced = reply.advanced +\
+                             "<b>command:</b>%s<br><b>error:</b>%s<br>" % (" ".join(cmd), myerr)
+        else:
+            reply.detail = reply.detail +\
+                           "<br>" +\
+                           T("Looking for pip install --target option, <b>found:</b>", lazy = False)
+            reply.next = "install"
+            if session.error_lib:
+                reply.nextsubaction = session.error_lib[-1]
+            elif session.warning_lib:
+                reply.nextsubaction = session.warning_lib[-1]
+        return json.dumps(reply)
+    # End of pip_json
+
+    if request.get_vars.button == "install":
+        return pip_json(reply)
+    elif request.get_vars.button == "skip":
+        return pre_db_json(reply)
+
+def pip_dialog(app):
+    libsdiv = DIV(_id="missing-libs-alert",
+                     _title=T("Missing Libraries")
+                   )
+    libsdiv.append(P(T("Some libraries that Eden uses are missing. Would you like the system to try and install them for you? To do this it is necessary to have pip installed.")))
+    script = "static/js/pip.js"
+    return (libsdiv.xml(), script)
+
+def db_type_dialog(app):
+    dbType = DIV(_id="db-type-form",
+                  _title=T("Database type")
+                 )
+    dbType.append(P(T("Select the type of database that will be used.")))
+    dbType.append(TABLE(
+                        TR( TD(INPUT(_id = "dbtype_sqlite",
+                             _name = "dbtype_in",
+                             _type = "radio",
+                             _value = "sqlite"
+                            )),
+                            TD(LABEL(T("Sqlite")))
+                        ),
+                       TR( TD(INPUT(_id = "dbtype_mysql",
+                             _name = "dbtype_in",
+                             _type = "radio",
+                             _value = "mysql"
+                            )),
+                          TD(LABEL(T("MySql")))
+                       ),
+                       TR(TD(INPUT(_id = "dbtype_postgres",
+                             _name = "dbtype_in",
+                             _type = "radio",
+                             _value = "postgres"
+                            )),
+                          TD(LABEL(T("PostgeSQL")))
+                       )
+                      ),
+                  )
+    script = "static/js/db_type.js"
+    return (dbType.xml(), script)
+
+def install():
+    def install_json(reply):
+        '''
+            This function will attempt to install the missing libraries
+            Because of the time it takes to install each library it will
+            do one at a time and then send the result back as an json string
+        '''
+        def pip_install(reply, lib, fatal):
+            '''
+                Function that will use pip to attempt to install the missing python library
+            '''
+            from subprocess import Popen, PIPE
+            import platform
+            windows = (platform.system() == "Windows")
+
+            target = os.path.join(request.env.web2py_path, "site-packages")
+            cmd = ["pip", "install", "--target", target, lib]
+            p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=windows)
+            (myout, myerr) = p.communicate()
+            if p.returncode == 0:
+                reply.detail = reply.detail + "<br>"+T("Installed <b>%s</b> library" % lib,
+                                                       lazy = False)
+                reply.advanced = reply.advanced +\
+                                "<b>command:</b>%s<br>" % (" ".join(cmd))
+            else:
+                reply.detail = reply.detail + "<br>"+T("Failed to install <b>%s</b> library." % (lib),
+                                                       lazy = False)
+                reply.advanced = reply.advanced +\
+                                "<b>command:</b>%s<br><b>error:</b>%s<br>%s<br>" % (" ".join(cmd),
+                                                                              myout.replace('\n', '<br />'),
+                                                                              myerr.replace('\n', '<br />'))
+                if fatal:
+                    session.fatal = T("Failed to install all of the required libraries",
+                                    lazy=False)
+                reply.result = False
+            return reply
+        # Install a required lib, if one exists
+        lib = None
+        if session.error_lib:
+            lib = session.error_lib.pop()
+            reply = pip_install(reply, lib, True)
+        # Install an optional lib, if one exists
+        elif session.warning_lib:
+            lib = session.warning_lib.pop()
+            reply = pip_install(reply, lib, False)
+        if lib:
+            reply.subaction = lib
+            if session.error_lib:
+                reply.nextsubaction = session.error_lib[-1]
+            elif session.warning_lib:
+                reply.nextsubaction = session.warning_lib[-1]
+            reply.next = "install"
+        else:
+            if session.fatal:
+                reply.fatal = session.fatal
+                reply.result = False
+            return pre_db_json(reply)
+        return json.dumps(reply)
+    # End of function install_json
+
+    return install_json(reply)
+
+def pre_db_json(reply):
+    reply.dialog = "#db-type-form"
+    (reply.html, reply.script) = db_type_dialog(app)
+    reply.next = "database"
+    db_type = get_000_config("db_type", "sqlite")
+    reply.db_type = db_type
+    return json.dumps(reply)
