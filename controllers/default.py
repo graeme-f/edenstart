@@ -312,104 +312,6 @@ $(function() {
 
 
 
-def connect_dialog(app):
-    appName = DIV(_id="db-connect-form",
-                  _title=T("Enter the database details")
-                 )
-    appName.append(P(T("Provide the details necessary to connect to the database"),
-                     _class="validateTips"))
-    appName.append(FORM(LABEL(T("Database host")),
-                        INPUT(_id = "db_host_in",
-                              _name = "db_host_in",
-                              _class="text ui-widget-content ui-corner-all",
-                              value = ""
-                             ),
-                        LABEL(T("Database port")),
-                        INPUT(_id = "db_port_in",
-                              _name = "db_port_in",
-                              _class="text ui-widget-content ui-corner-all",
-                              value = ""
-                             ),
-                        LABEL(T("Database schema name")),
-                        INPUT(_id = "db_schema_in",
-                              _name = "db_schema_in",
-                              _class="text ui-widget-content ui-corner-all",
-                              value = ""
-                             ),
-                        LABEL(T("Database username")),
-                        INPUT(_id = "db_user_in",
-                              _name = "db_user_in",
-                              _class="text ui-widget-content ui-corner-all",
-                              value = ""
-                             ),
-                        LABEL(T("Database password")),
-                        INPUT(_id = "db_password_in",
-                              _name = "db_password_in",
-                              _type = "password",
-                              _class="text ui-widget-content ui-corner-all",
-                              value = ""
-                             ),
-                        )
-                   )
-    response.dialogs.append(appName)
-    hostError = T("Host name is invalid, it must either be a valid host name or an IP address.")
-    portError = T("The port number must be between 0 and 65535")
-    schemaError = T("Schema name may consist of a-z, 0-9, and underscore.")
-    userError = T("The user name must be between 3 and 10 characters and can contain a letter, number or underscore")
-    passwordError = T("The password must be between 6 and 18 characters and can contain a letter, number, hyphen or underscore")
-    script = """
-$(function() {
-    var dbhost = $("#db_host_in"),
-        dbport = $("#db_port_in"),
-        dbschema = $("#db_schema_in"),
-        dbuser = $("#db_user_in"),
-        dbpassword = $("#db_password_in"),
-        allFields = $([]).add(dbhost).add(dbport).add(dbschema).add(dbuser).add(dbpassword),
-        tips = $(".validateTips");
-    $("#db-connect-form").dialog({
-        autoOpen: false,
-        modal: true,
-        buttons: {
-            "%s": function() {
-                var bValid = true;
-                allFields.removeClass( "ui-state-error" );
-                var validIpAddressRegex = /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/i;
-                var validHostnameRegex = /^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$/i;
-                var validHost = (validIpAddressRegex.test(dbhost.val()) || validHostnameRegex.test(dbhost.val()));
-                if (!validHost){
-                    bValid = false;
-                    dbhost.addClass("ui-state-error");
-                    updateTips("%s");
-                }
-                bValid = bValid && checkRegexp( dbport, /([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$/i, "%s");
-                bValid = bValid && checkRegexp( dbschema, /^[0-9a-z_]+$/i, "%s");
-                bValid = bValid && checkRegexp( dbuser, /^[0-9a-zA-Z_]{3,10}$/i, "%s");
-                bValid = bValid && checkRegexp( dbpassword, /^[a-zA-Z0-9_-]{4,18}$/i, "%s");
-                if ( bValid ) {
-                    args['db_host'] = dbhost.val();
-                    args['db_port'] = dbport.val();
-                    args['db_schema'] = dbschema.val();
-                    args['db_user'] = dbuser.val();
-                    args['db_password'] = dbpassword.val();
-                    $( this ).dialog("close");
-                    $.get('/%s/default/index', args).done(function(data){success(data)});
-                }
-            }
-        },
-        open: function (event, ui){
-            $(dbhost).val(data.db_host);
-            $(dbport).val(data.db_port);
-            $(dbschema).val(data.db_schema);
-            $(dbuser).val(data.db_user);
-            $(dbpassword).val(data.db_password);
-        },
-        close: function() {
-            allFields.val("").removeClass("ui-state-error");
-        }
-    });
-});
-""" % (T("Continue"), hostError, portError, schemaError, userError, passwordError, app)
-    return script
 
 def base_dialog(app):
     appName = DIV(_id="sys-base-form",
@@ -548,43 +450,6 @@ $(function() {
 
 
 
-def db_json(reply):
-    db_type = request.get_vars.db_type
-    session.db_type = db_type
-    set_000_config("database.db_type",
-                   '"%s"'%db_type,
-                   comment=(db_type=="sqlite")
-                  )
-    reply.detail = reply.detail + T("type <b>%s</b> selected" % db_type,
-                                    lazy = False)
-    return pre_connect_json(reply)
-
-def pre_connect_json(reply):
-    db_type = session.db_type
-    if db_type == "sqlite":
-        set_000_config("database.host","",True)
-        set_000_config("database.port","",True)
-        set_000_config("database.database","",True)
-        set_000_config("database.username","",True)
-        set_000_config("database.password","",True)
-        reply.next = "connect"
-    elif db_type == "mysql":
-        reply.dialog = "#db-connect-form"
-        reply.next = "connect"
-        reply.db_host = get_000_config("host", "localhost")
-        reply.db_port = get_000_config("port", "3306")
-        reply.db_schema = get_000_config("schema", "sahana")
-        reply.db_user = get_000_config("user", "sahana")
-        reply.db_password = get_000_config("password", "")
-    elif db_type == "postgres":
-        reply.dialog = "#db-connect-form"
-        reply.next = "connect"
-        reply.db_host = get_000_config("host", "localhost")
-        reply.db_port = get_000_config("port", "5432")
-        reply.db_schema = get_000_config("schema", "sahana")
-        reply.db_user = get_000_config("user", "sahana")
-        reply.db_password = get_000_config("password", "")
-    return json.dumps(reply)
 
 def connect_json(reply):
     db_type = session.db_type
@@ -1519,3 +1384,89 @@ def pre_db_json(reply):
     db_type = get_000_config("db_type", "sqlite")
     reply.db_type = db_type
     return json.dumps(reply)
+
+def database():
+    def db_json(reply):
+        db_type = request.get_vars.db_type
+        session.db_type = db_type
+        set_000_config("database.db_type",
+                       '"%s"'%db_type,
+                       comment=(db_type=="sqlite")
+                      )
+        reply.detail = reply.detail + T("type <b>%s</b> selected" % db_type,
+                                        lazy = False)
+        return pre_connect_json(reply)
+
+    def pre_connect_json(reply):
+        db_type = session.db_type
+        if db_type == "sqlite":
+            set_000_config("database.host","",True)
+            set_000_config("database.port","",True)
+            set_000_config("database.database","",True)
+            set_000_config("database.username","",True)
+            set_000_config("database.password","",True)
+            reply.next = "connect"
+        elif db_type == "mysql":
+            reply.dialog = "#db-connect-form"
+            (reply.html, reply.script) = connect_dialog(app)
+            reply.next = "connect"
+            reply.db_host = get_000_config("host", "localhost")
+            reply.db_port = get_000_config("port", "3306")
+            reply.db_schema = get_000_config("schema", "sahana")
+            reply.db_user = get_000_config("user", "sahana")
+            reply.db_password = get_000_config("password", "")
+        elif db_type == "postgres":
+            reply.dialog = "#db-connect-form"
+            (reply.html, reply.script) = connect_dialog(app)
+            reply.next = "connect"
+            reply.db_host = get_000_config("host", "localhost")
+            reply.db_port = get_000_config("port", "5432")
+            reply.db_schema = get_000_config("schema", "sahana")
+            reply.db_user = get_000_config("user", "sahana")
+            reply.db_password = get_000_config("password", "")
+        return json.dumps(reply)
+
+    return db_json(reply)
+
+def connect_dialog(app):
+    connect = DIV(_id="db-connect-form",
+                  _title=T("Enter the database details")
+                 )
+    connect.append(P(T("Provide the details necessary to connect to the database"),
+                     _class="validateTips"))
+    connect.append(FORM(LABEL(T("Database host")),
+                        INPUT(_id = "db_host_in",
+                              _name = "db_host_in",
+                              _class="text ui-widget-content ui-corner-all",
+                              value = ""
+                             ),
+                        LABEL(T("Database port")),
+                        INPUT(_id = "db_port_in",
+                              _name = "db_port_in",
+                              _class="text ui-widget-content ui-corner-all",
+                              value = ""
+                             ),
+                        LABEL(T("Database schema name")),
+                        INPUT(_id = "db_schema_in",
+                              _name = "db_schema_in",
+                              _class="text ui-widget-content ui-corner-all",
+                              value = ""
+                             ),
+                        LABEL(T("Database username")),
+                        INPUT(_id = "db_user_in",
+                              _name = "db_user_in",
+                              _class="text ui-widget-content ui-corner-all",
+                              value = ""
+                             ),
+                        LABEL(T("Database password")),
+                        INPUT(_id = "db_password_in",
+                              _name = "db_password_in",
+                              _type = "password",
+                              _class="text ui-widget-content ui-corner-all",
+                              value = ""
+                             ),
+                        )
+                   )
+
+    script = "static/js/db_connect.js"
+    return (connect.xml(), script)
