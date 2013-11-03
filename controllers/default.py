@@ -313,247 +313,10 @@ $(function() {
 
 
 
-def base_dialog(app):
-    appName = DIV(_id="sys-base-form",
-                  _title=T("Enter the system details")
-                 )
-    appName.append(P(T("Provide base system details"),
-                     _class="validateTips"))
-    appName.append(FORM(LABEL(T("System name")),
-                        INPUT(_id = "sys_name_in",
-                              _name = "sys_name_in",
-                              _class="text ui-widget-content ui-corner-all",
-                              value = ""
-                             ),
-                        LABEL(T("System short name")),
-                        INPUT(_id = "sys_abbrv_in",
-                              _name = "sys_abbrv_in",
-                              _class="text ui-widget-content ui-corner-all",
-                              value = ""
-                             ),
-                        LABEL(T("Public URL")),
-                        INPUT(_id = "url_in",
-                              _name = "url_in",
-                              _class="text ui-widget-content ui-corner-all",
-                              value = ""
-                             )
-                        )
-                   )
-    response.dialogs.append(appName)
-    nameError = T("The system name needs can contain letters and spaces and be between 3 and 128 characters long.")
-    abbrError = T("The system short name needs can contain letters and spaces and be between 3 and 32 characters long.")
-    urlError = T("The url needs to be a valid URL, including the port number")
-    script = """
-$(function() {
-    var sysname = $("#sys_name_in"),
-        sysabbrv = $("#sys_abbrv_in"),
-        sysurl = $("#url_in"),
-        allFields = $([]).add(sysname).add(sysabbrv).add(sysurl),
-        tips = $(".validateTips");
-    $("#sys-base-form").dialog({
-        autoOpen: false,
-        modal: true,
-        width: 700,
-        buttons: {
-            "%s": function() {
-                var bValid = true;
-                allFields.removeClass( "ui-state-error" );
-                bValid = bValid && checkRegexp( sysname, /^[a-zA-Z ]{3,128}$/, "%s");
-                bValid = bValid && checkRegexp( sysabbrv, /^[a-zA-Z ]{3,32}$/, "%s");
-                bValid = bValid && checkRegexp( sysurl, /^http(s?)\:\/\/[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:[0-9]*)$/, "%s");
-                if ( bValid ) {
-                    args['sys_name'] = sysname.val();
-                    args['sys_abbrv'] = sysabbrv.val();
-                    args['sys_url'] = sysurl.val();
-                    $( this ).dialog("close");
-                    $.get('/%s/default/index', args).done(function(data){success(data)});
-                }
-            }
-        },
-        open: function (event, ui){
-            $(sysname).val(data.sys_name);
-            $(sysabbrv).val(data.sys_abbrv);
-            $(sysurl).val(data.sys_url);
-        },
-        close: function() {
-            allFields.val("").removeClass("ui-state-error");
-        }
-    });
-});
-""" % (T("Continue"), nameError, abbrError, urlError, app)
-    return script
-
-def template_dialog(app):
-    template = DIV(_id="template-form",
-                  _title=T("Template")
-                 )
-    template.append(P(T("Select the template that will be used.")))
-    template.append(TABLE(TR(TD( LABEL(T("Template"))),
-                             TD( SELECT(_id = "template_in",
-                                     _name = "template_in"
-                                     ))
-                              )
-                        )
-                   )
-    response.dialogs.append(template)
-    script = '''
-$(function() {
-    $("#template-form").dialog({
-        autoOpen: false,
-        modal: true,
-        buttons: {
-            %s: function() {
-                args['template'] = $("#template_in").val();
-                $( this ).dialog("close");
-                $.get('/%s/default/index', args).done(function(data){success(data)});
-            }
-        },
-        open: function (event, ui){
-            $("#template_in").append(data.template_options);
-        }
-    });
-});
-''' % (T("Continue"), app)
-    return script
-
-def module_dialog(app):
-    module = DIV(_id="module-form",
-                  _title=T("Template")
-                 )
-    module.append(P(T("Select the modules that will be enabled.")))
-    module.append(TABLE(TR(TD( LABEL(T("Modules"))),
-                              ),
-                        _id="module_list"
-                        ),
-                   )
-    response.dialogs.append(module)
-    script = '''
-$(function() {
-    $("#module-form").dialog({
-        autoOpen: false,
-        modal: true,
-        buttons: {
-            %s: function() {
-                args['module'] = $("#module_in").val();
-                $( this ).dialog("close");
-                $.get('/%s/default/index', args).done(function(data){success(data)});
-            }
-        },
-        open: function (event, ui){
-            $("#module_list").append(data.module_list);
-        }
-    });
-});
-''' % (T("Continue"), app)
-    return script
 
 
 
 
-
-def connect_json(reply):
-    db_type = session.db_type
-    db_host = request.get_vars.db_host
-    db_port = request.get_vars.db_port
-    db_schema = request.get_vars.db_schema
-    db_user = request.get_vars.db_user
-    db_password = request.get_vars.db_password
-    set_000_config("database.host",
-                   '"%s"'%db_host,
-                   comment=(db_type=="sqlite")
-                  )
-    set_000_config("database.port",
-                   db_port,
-                   comment=(db_type=="sqlite")
-                  )
-    set_000_config("database.database",
-                   '"%s"'%db_schema,
-                   comment=(db_type=="sqlite")
-                  )
-    set_000_config("database.username",
-                   '"%s"'%db_user,
-                   comment=(db_type=="sqlite")
-                  )
-    set_000_config("database.password",
-                   '"%s"'%db_password,
-                   comment=(db_type=="sqlite")
-                  )
-    # Now construct the database string
-    if (db_type == "sqlite"):
-        db_string = "sqlite://storage.db"
-    elif (db_type == "mysql"):
-        db_string = "mysql://%s:%s@%s:%s/%s" % \
-                    (db_user, db_password, db_host, db_port, db_schema)
-    elif (db_type == "postgres"):
-        db_string = "postgres://%s:%s@%s:%s/%s" % \
-                    (db_user, db_password, db_host, db_port, db_schema)
-    reply = db_connect(reply, db_string)
-    return json.dumps(reply)
-
-def base_json(reply):
-    sys_name = request.get_vars.sys_name
-    sys_abbrv = request.get_vars.sys_abbrv
-    sys_url = request.get_vars.sys_url
-    set_000_config("base.system_name", 'T("%s")' % sys_name)
-    set_000_config("base.system_name_short", 'T("%s")' % sys_abbrv)
-    set_000_config("base.public_url", '"%s"' % sys_url)
-    return pre_template_json(reply)
-
-
-def pre_template_json(reply):
-    reply.dialog = "#template-form"
-    reply.next = "template"
-    template_path = "applications/%s/private/templates" % session.appname
-    dir_list = os.listdir(template_path)
-    dir_list.sort()
-    option_list = ""
-    for file in dir_list:
-        new_file = "%s/%s" % (template_path, file)
-        if os.path.isdir(new_file):
-            if file == "default":
-                option_list = option_list\
-                            + OPTION(file,
-                                     _id=file,
-                                     _value=file,
-                                     _selected=True).xml()
-            else:
-                option_list = option_list\
-                            + OPTION(file,
-                                     _id=file,
-                                     _value=file).xml()
-    reply.template_options = option_list
-    return json.dumps(reply)
-
-def template_json(reply):
-    set_000_config("base.template", '"%s"' % request.get_vars.template)
-    return json.dumps(reply)
-
-def module_json(reply):
-    return json.dumps(reply)
-
-def db_connect(reply, db_string):
-    # attempt to connect using the string
-    try:
-        db = DAL(db_string)
-        session.db_string = db_string
-        reply.detail = reply.detail + "<br>"+T("Connection to database <b>success</b>",
-                                               lazy = False)
-        reply.advanced = reply.advanced +\
-                        "Connection using database string <b>%s</b> succeeded<br>" % db_string
-        reply.dialog = "#sys-base-form"
-        reply.sys_name = get_000_config("system_name", "Sahana Eden Humanitarian Management Platform")
-        reply.sys_abbrv = get_000_config("system_name_short", "Sahana Eden")
-        reply.sys_url = get_000_config("public_url", "http://127.0.0.1:8000")
-        reply.next = "base"
-    except:
-        reply.result = False
-        reply.detail = reply.detail + "<br>"+T("Connection to database <b>failed</b>",
-                                               lazy = False)
-        reply.advanced = reply.advanced +\
-                        "Connection using database string <b>%s</b> failed<br>" % db_string
-        reply.dialog = "#db-type-form"
-        reply.next = "database"
-    return reply
 
 def strip_lib(msg):
     needle = "unresolved dependency: "
@@ -1467,6 +1230,181 @@ def connect_dialog(app):
                              ),
                         )
                    )
-
     script = "static/js/db_connect.js"
     return (connect.xml(), script)
+
+def connect():
+    def connect_json(reply):
+        db_type = session.db_type
+        db_host = request.get_vars.db_host
+        db_port = request.get_vars.db_port
+        db_schema = request.get_vars.db_schema
+        db_user = request.get_vars.db_user
+        db_password = request.get_vars.db_password
+        set_000_config("database.host",
+                       '"%s"'%db_host,
+                       comment=(db_type=="sqlite")
+                      )
+        set_000_config("database.port",
+                       db_port,
+                       comment=(db_type=="sqlite")
+                      )
+        set_000_config("database.database",
+                       '"%s"'%db_schema,
+                       comment=(db_type=="sqlite")
+                      )
+        set_000_config("database.username",
+                       '"%s"'%db_user,
+                       comment=(db_type=="sqlite")
+                      )
+        set_000_config("database.password",
+                       '"%s"'%db_password,
+                       comment=(db_type=="sqlite")
+                      )
+        # Now construct the database string
+        if (db_type == "sqlite"):
+            db_string = "sqlite://storage.db"
+        elif (db_type == "mysql"):
+            db_string = "mysql://%s:%s@%s:%s/%s" % \
+                        (db_user, db_password, db_host, db_port, db_schema)
+        elif (db_type == "postgres"):
+            db_string = "postgres://%s:%s@%s:%s/%s" % \
+                        (db_user, db_password, db_host, db_port, db_schema)
+        reply = db_connect(reply, db_string)
+        return json.dumps(reply)
+    return connect_json(reply)
+
+def db_connect(reply, db_string):
+    # attempt to connect using the string
+    try:
+        db = DAL(db_string)
+        session.db_string = db_string
+        reply.detail = reply.detail + "<br>"+T("Connection to database <b>success</b>",
+                                               lazy = False)
+        reply.advanced = reply.advanced +\
+                        "Connection using database string <b>%s</b> succeeded<br>" % db_string
+        reply.sys_name = get_000_config("system_name", "Sahana Eden Humanitarian Management Platform")
+        reply.sys_abbrv = get_000_config("system_name_short", "Sahana Eden")
+        reply.sys_url = get_000_config("public_url", "http://127.0.0.1:8000")
+        reply.dialog = "#sys-base-form"
+        reply.next = "base"
+        (reply.html, reply.script) = base_dialog(app)
+    except:
+        reply.result = False
+        reply.detail = reply.detail + "<br>"+T("Connection to database <b>failed</b>",
+                                               lazy = False)
+        reply.advanced = reply.advanced +\
+                        "Connection using database string <b>%s</b> failed<br>" % db_string
+        reply.dialog = "#db-type-form"
+        reply.next = "database"
+    return reply
+
+def base():
+    def pre_template_json(reply):
+        template_path = "applications/%s/private/templates" % session.appname
+        dir_list = os.listdir(template_path)
+        dir_list.sort()
+        option_list = ""
+        for file in dir_list:
+            new_file = "%s/%s" % (template_path, file)
+            if os.path.isdir(new_file):
+                if file == "default":
+                    option_list = option_list\
+                                + OPTION(file,
+                                         _id=file,
+                                         _value=file,
+                                         _selected=True).xml()
+                else:
+                    option_list = option_list\
+                                + OPTION(file,
+                                         _id=file,
+                                         _value=file).xml()
+        reply.template_options = option_list
+        reply.dialog = "#template-form"
+        reply.next = "template"
+        (reply.html, reply.script) = template_dialog(app)
+        return json.dumps(reply)
+
+    def base_json(reply):
+        sys_name = request.get_vars.sys_name
+        sys_abbrv = request.get_vars.sys_abbrv
+        sys_url = request.get_vars.sys_url
+        set_000_config("base.system_name", 'T("%s")' % sys_name)
+        set_000_config("base.system_name_short", 'T("%s")' % sys_abbrv)
+        set_000_config("base.public_url", '"%s"' % sys_url)
+        return pre_template_json(reply)
+    return base_json(reply)
+
+def base_dialog(app):
+    base = DIV(_id="sys-base-form",
+                  _title=T("Enter the system details")
+                 )
+    base.append(P(T("Provide base system details"),
+                     _class="validateTips"))
+    base.append(FORM(LABEL(T("System name")),
+                        INPUT(_id = "sys_name_in",
+                              _name = "sys_name_in",
+                              _class="text ui-widget-content ui-corner-all",
+                              value = ""
+                             ),
+                        LABEL(T("System short name")),
+                        INPUT(_id = "sys_abbrv_in",
+                              _name = "sys_abbrv_in",
+                              _class="text ui-widget-content ui-corner-all",
+                              value = ""
+                             ),
+                        LABEL(T("Public URL")),
+                        INPUT(_id = "url_in",
+                              _name = "url_in",
+                              _class="text ui-widget-content ui-corner-all",
+                              value = ""
+                             )
+                        )
+                   )
+    script = "static/js/base.js"
+    return (base.xml(), script)
+
+def template():
+    def template_json(reply):
+        set_000_config("base.template", '"%s"' % request.get_vars.template)
+        reply.dialog = "#module-form"
+        reply.next = "module"
+        (reply.html, reply.script) = module_dialog(app)
+        return json.dumps(reply)
+    return template_json(reply)
+
+
+def template_dialog(app):
+    template = DIV(_id="template-form",
+                  _title=T("Template")
+                 )
+    template.append(P(T("Select the template that will be used.")))
+    template.append(TABLE(TR(TD( LABEL(T("Template"))),
+                             TD( SELECT(_id = "template_in",
+                                     _name = "template_in"
+                                     ))
+                              )
+                        )
+                   )
+    script = "static/js/template.js"
+    return (template.xml(), script)
+
+def module_dialog(app):
+    module = DIV(_id="module-form",
+                  _title=T("Template")
+                 )
+    module.append(P(T("Select the modules that will be enabled.")))
+    module.append(TABLE(TR(TD( LABEL(T("Modules"))),
+                              ),
+                        _id="module_list"
+                        ),
+                   )
+    script = "static/js/module.js"
+    return (module.xml(), script)
+
+
+def module():
+    def module_json(reply):
+        reply.next = "finished"
+        return json.dumps(reply)
+    return module_json(reply)
