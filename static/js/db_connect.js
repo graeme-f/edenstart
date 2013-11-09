@@ -17,7 +17,6 @@ $(function() {
         tips = $(".validateTips");
     $("#db-connect-form").dialog({
         autoOpen: false,
-        modal: true,
         buttons: [{
             text: btnName,
             click: function() {

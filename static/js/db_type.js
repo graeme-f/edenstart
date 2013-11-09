@@ -4,7 +4,6 @@ args = new Object();
 $(function() {
     $("#db-type-form").dialog({
         autoOpen: false,
-        modal: true,
         buttons: [{
             text: btnName,
             click: function() {

@@ -3,7 +3,6 @@ btnName = "Continue";
 $(function() {
     $("#template-form").dialog({
         autoOpen: false,
-        modal: true,
         buttons: [{
             text: btnName,
             click: function() {

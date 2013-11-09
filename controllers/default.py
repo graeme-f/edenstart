@@ -20,9 +20,14 @@
            - use
              - use an existing copy of Eden
            - update
-         * python (Check that the required python libraries have been installed)
+         - python (Check that the required python libraries have been installed)
            * pip (Attempt to install all libraries that are required)
-         * database (Find out what type of database will be used)
+         - database (Find out what type of database will be used)
+         * connect (Attempt to connect to that database)
+         - base (Get basic information for the install)
+         - template (Select the template to use)
+         * module (Select the modules to use)
+         * finsihed (Redirect to the newly installed Eden)
 
     Note: the above is a guide to where work needs to be done
          - indicates completed
@@ -35,6 +40,9 @@
     @todo: Add a generic Ajax enabled progress bar and then add it
            to the "long processes", such as clone, copy, library install
     @todo: make check_python_libraries() a separate function in s3_update_check
+    @todo: Tidy up the way information is reported, maybe two sections which are always displayed
+    @todo: Ability to print to a file the install details
+    @todo: Ability to print a debug file for remote assistance
 '''
 
 app = request.application
@@ -281,33 +289,32 @@ checkRestrict = function(o, n, exclude){
 #        script = script + module_dialog(app)
         return dict(script=script)
 
-
-
-def appexist_dialog(app):
-    existsName = DIV(_id="app-exists-alert",
-                     _title=T("Application exists")
-                   )
-    existsName.append(P(T("The application folder already exists. The setup will now work with this folder")))
-    response.dialogs.append(existsName)
-    script = """
-$(function() {
-    $("#app-exists-alert").dialog({
-        autoOpen: false,
-        modal: true,
-        buttons: {
-            %s: function() {
-                $( this ).dialog("close");
-                $.get('/%s/default/index', args).done(function(data){success(data)});
-            },
-            %s: function() {
-                $( this ).dialog("close");
-            }
-        },
-    });
-});
-""" % (T("Continue"), app, T("Cancel"))
-    return script
-
+#
+#
+#def appexist_dialog(app):
+#    existsName = DIV(_id="app-exists-alert",
+#                     _title=T("Application exists")
+#                   )
+#    existsName.append(P(T("The application folder already exists. The setup will now work with this folder")))
+#    response.dialogs.append(existsName)
+#    script = """
+#$(function() {
+#    $("#app-exists-alert").dialog({
+#        autoOpen: false,
+#        modal: true,
+#        buttons: {
+#            %s: function() {
+#                $( this ).dialog("close");
+#                $.get('/%s/default/index', args).done(function(data){success(data)});
+#            },
+#            %s: function() {
+#                $( this ).dialog("close");
+#            }
+#        },
+#    });
+#});
+#""" % (T("Continue"), app, T("Cancel"))
+#    return script
 
 
 
@@ -1036,6 +1043,7 @@ def pip():
     if request.get_vars.button == "install":
         return pip_json(reply)
     elif request.get_vars.button == "skip":
+        reply.detail = T("Installation of missing libraries skipped", lazy = False),
         return pre_db_json(reply)
 
 def pip_dialog(app):
@@ -1279,13 +1287,10 @@ def db_connect(reply, db_string):
     try:
         db = DAL(db_string)
         session.db_string = db_string
-        reply.detail = reply.detail + "<br>"+T("Connection to database <b>success</b>",
+        reply.detail = reply.detail + "<br>"+T("Connection to database <b>successful</b>.",
                                                lazy = False)
         reply.advanced = reply.advanced +\
                         "Connection using database string <b>%s</b> succeeded<br>" % db_string
-        reply.sys_name = get_000_config("system_name", "Sahana Eden Humanitarian Management Platform")
-        reply.sys_abbrv = get_000_config("system_name_short", "Sahana Eden")
-        reply.sys_url = get_000_config("public_url", "http://127.0.0.1:8000")
         reply.dialog = "#sys-base-form"
         reply.next = "base"
         (reply.html, reply.script) = base_dialog(app)
@@ -1329,13 +1334,35 @@ def base():
         sys_name = request.get_vars.sys_name
         sys_abbrv = request.get_vars.sys_abbrv
         sys_url = request.get_vars.sys_url
+        if request.get_vars.debug:
+            debug = True
+        else:
+            debug = False
         set_000_config("base.system_name", 'T("%s")' % sys_name)
         set_000_config("base.system_name_short", 'T("%s")' % sys_abbrv)
         set_000_config("base.public_url", '"%s"' % sys_url)
+        set_000_config("base.debug", '%s' % debug)
+        reply.detail = T("Details saved to <b>000_config</b> file.",
+                         lazy = False)
+        reply.advanced = reply.detail +\
+                        T("<br>System name <b>%s</b>" % (sys_name),
+                          lazy = False) +\
+                        T("<br>System abbreviation <b>%s</b>" % (sys_abbrv),
+                          lazy = False)+\
+                        T("<br>Public URL <b>%s</b>" % (sys_url),
+                          lazy = False)
+        if debug:
+            reply.advanced = reply.advanced +\
+                            T("<br>Debug setting turned on.",
+                              lazy = False)
         return pre_template_json(reply)
     return base_json(reply)
 
 def base_dialog(app):
+    sys_name = get_000_config("system_name", "Sahana Eden Humanitarian Management Platform")
+    sys_abbrv = get_000_config("system_name_short", "Sahana Eden")
+    sys_url = get_000_config("public_url", "http://127.0.0.1:8000")
+    debug = get_000_config("debug", True)
     base = DIV(_id="sys-base-form",
                   _title=T("Enter the system details")
                  )
@@ -1345,19 +1372,27 @@ def base_dialog(app):
                         INPUT(_id = "sys_name_in",
                               _name = "sys_name_in",
                               _class="text ui-widget-content ui-corner-all",
-                              value = ""
+                              value = sys_name
                              ),
                         LABEL(T("System short name")),
                         INPUT(_id = "sys_abbrv_in",
                               _name = "sys_abbrv_in",
                               _class="text ui-widget-content ui-corner-all",
-                              value = ""
+                              value = sys_abbrv
                              ),
                         LABEL(T("Public URL")),
                         INPUT(_id = "url_in",
                               _name = "url_in",
                               _class="text ui-widget-content ui-corner-all",
-                              value = ""
+                              _value = sys_url
+                             ),
+                        LABEL(T("Debug Mode (Developer only)")),
+                        INPUT(_id = "debug_in",
+                              _name = "debug_in",
+                              _type = "checkbox",
+                              _value = "debug",
+                              _checked = debug,
+                              _class="text ui-widget-content ui-corner-all"
                              )
                         )
                    )
@@ -1366,9 +1401,12 @@ def base_dialog(app):
 
 def template():
     def template_json(reply):
-        set_000_config("base.template", '"%s"' % request.get_vars.template)
+        selected_template = request.get_vars.template
+        set_000_config("base.template", '"%s"' % selected_template)
         reply.dialog = "#module-form"
         reply.next = "module"
+        reply.detail = T("Template <b>%s</b> selected." % selected_template,
+                         lazy = False)
         (reply.html, reply.script) = module_dialog(app)
         return json.dumps(reply)
     return template_json(reply)

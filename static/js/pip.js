@@ -5,7 +5,6 @@ args = new Object();
 $(function() {
     $("#missing-libs-alert").dialog({
         autoOpen: false,
-        modal: true,
         buttons: [{
             text: btn1,
             click: function() {
