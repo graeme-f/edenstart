@@ -70,92 +70,49 @@ if request.ajax:
     reply.advanced = ""
 
 def index():
-    if request.ajax:
-#        action = request.get_vars.action
-#        reply = Storage()
-#        reply.action = action
-#        reply.result = True
-#        reply.fatal = False
-#        reply.dialog = False
-#        reply.detail = ""
-#        reply.advanced = ""
-#        if action == "start":
-#            reply.next = "appname"
-#            reply.dialog = "#app-name-form"
-#            return json.dumps(reply)
-#        elif action == "appname":
-#            return appname_json(reply)
-#        elif action == "git":
-#            return git_json(reply)
-#        elif action == "clone":
-#            return clone_json(reply)
-#        elif action == "python":
-#            return python_json(reply)
-#        elif action == "pip":
-#            if request.get_vars.button == "install":
-#                return pip_json(reply)
-#            elif request.get_vars.button == "skip":
-#                return pre_db_json(reply)
-#        elif action == "install":
-#            return install_json(reply)
-#        elif action == "database":
-#            return db_json(reply)
-#        elif action == "connect":
-#            return connect_json(reply)
-#        elif action == "base":
-#            return base_json(reply)
-#        elif action == "template":
-#            return template_json(reply)
-#        elif action == "module":
-#            return module_json(reply)
-#        else:
-#            reply.next = "finished"
-#            return json.dumps(reply)
-        pass
-    else:
-        try:
-            # Python 2.7
-            from collections import OrderedDict
-        except:
-            # Python 2.6
-            from gluon.contrib.simplejson.ordered_dict import OrderedDict
-        #session.eden_release = T("Eden release 1.0")
-        session.eden_release = T("Eden trunk") # replace once we have a release
-        session.fatal = None
-        response.title=T("Sahana Eden Web Setup")
-        actions = OrderedDict()
-        actions["setup_type"] = T("Type of setup")
-        actions["appname"] = T("Getting the application name")
-        actions["git"] = T("Looking for git")
-        actions["clone"] = T("Cloning Sahana Eden")
-        actions["python"] = T("Looking for Python libraries")
-        actions["pip"] = T("Looking for pip")
-        actions["install"] = T("Using pip to install missing libraries")
-        actions["database"] = T("Selecting the database to use")
-        actions["connect"] = T("Connecting to the database")
-        actions["base"] = T("Basic system settings")
-        actions["template"] = T("Select the template to use")
-        actions["modules"] = T("Select modules to enable")
-        table = TABLE()
-        for (key,value) in actions.items():
-            table.append(TR(
-                            TD(value, _id="%s" % key),
-                            TD(IMG(_id="%s_wait" % key,
-                                   _src="/%s/static/images/Waiting.png" % app),
-                               IMG(_id="%s_process" % key,
-                                   _src="/%s/static/images/ajax-loader.gif" % app,
-                                   _class="hidden"),
-                               IMG(_id="%s_pass" % key,
-                                   _src="/%s/static/images/Pass.png" % app,
-                                   _class="hidden"),
-                               IMG(_id="%s_fail" % key,
-                                   _src="/%s/static/images/Fail.png" % app,
-                                   _class="hidden")
-                              )
-                           )
-                        )
-        response.basic=table
-        script = """
+    try:
+        # Python 2.7
+        from collections import OrderedDict
+    except:
+        # Python 2.6
+        from gluon.contrib.simplejson.ordered_dict import OrderedDict
+    #session.eden_release = T("Eden release 1.0")
+    session.eden_release = T("Eden trunk") # replace once we have a release
+    session.fatal = None
+    response.title=T("Sahana Eden Web Setup")
+    actions = OrderedDict()
+    actions["setup_type"] = T("Type of setup")
+    actions["appname"] = T("Getting the application name")
+    actions["git"] = T("Looking for git")
+    actions["clone"] = T("Cloning Sahana Eden")
+    actions["python"] = T("Looking for Python libraries")
+    actions["pip"] = T("Looking for pip")
+    actions["install"] = T("Using pip to install missing libraries")
+    actions["database"] = T("Selecting the database to use")
+    actions["connect"] = T("Connecting to the database")
+    actions["base"] = T("Basic system settings")
+    actions["template"] = T("Select the template to use")
+    actions["modules"] = T("Select modules to enable")
+    table = TABLE()
+    for (key,value) in actions.items():
+        table.append(TR(
+                        TD(value, _id="%s" % key),
+                        TD(IMG(_id="%s_wait" % key,
+                               _src="/%s/static/images/Waiting.png" % app),
+                           IMG(_id="%s_process" % key,
+                               _src="/%s/static/images/ajax-loader.gif" % app,
+                               _class="hidden"),
+                           IMG(_id="%s_pass" % key,
+                               _src="/%s/static/images/Pass.png" % app,
+                               _class="hidden"),
+                           IMG(_id="%s_fail" % key,
+                               _src="/%s/static/images/Fail.png" % app,
+                               _class="hidden")
+                          )
+                       )
+                    )
+    response.basic=table
+    script = """
 app = "%s";
 success = function(_data){
     data = $.parseJSON(_data) // Global scope so that dialog events can access it
@@ -276,18 +233,7 @@ checkRestrict = function(o, n, exclude){
     return true;
 }
 """ % (app)
-        # Add input dialogs
-#        response.dialogs = DIV()
-##        script = script + setup_type_dialog(app)
-#        script = script + appname_dialog(app)
-#        script = script + appexist_dialog(app)
-#        script = script + pip_dialog(app)
-#        script = script + db_type_dialog(app)
-#        script = script + connect_dialog(app)
-#        script = script + base_dialog(app)
-#        script = script + template_dialog(app)
-#        script = script + module_dialog(app)
-        return dict(script=script)
+    return dict(script=script)
 
 #
 #
@@ -324,13 +270,6 @@ checkRestrict = function(o, n, exclude){
 
 
 
-
-def strip_lib(msg):
-    needle = "unresolved dependency: "
-    start = msg.find(needle) + len(needle)
-    finish = msg.find(" ", start)
-    lib = msg[start:finish]
-    return lib
 
 
 '''
@@ -454,7 +393,7 @@ def set_000_config(attr, value, comment=False):
 '''
     start
     =====
-    This gets the some of the data that the Ajax app will use
+    This gets some of the data that the Ajax app will use
     It then displays the setup type dialog
 '''
 def start():
@@ -529,8 +468,7 @@ def setup_type_dialog(app):
                        TR(TD(INPUT(_id = "setup_clone",
                              _name = "setup_type_in",
                              _type = "radio",
-                             _value = "clone",
-                             _checked = True
+                             _value = "clone"
                             )),
                             TD(LABEL(T("Clone from git hub")))
                        ),
@@ -544,7 +482,8 @@ def setup_type_dialog(app):
                        TR(TD(INPUT(_id = "setup_use",
                              _name = "setup_type_in",
                              _type = "radio",
-                             _value = "use"
+                             _value = "use",
+                             _checked = True
                             )),
                           TD(LABEL(T("Use an existing unused Eden install")))
                        ),
@@ -813,6 +752,13 @@ def use_dialog(app):
     @todo: use T() for all strings...
 '''
 def python():
+    def strip_lib(msg):
+        needle = "unresolved dependency: "
+        start = msg.find(needle) + len(needle)
+        finish = msg.find(" ", start)
+        lib = msg[start:finish]
+        return lib
+
     def python_json(reply):
         result = check_python_libraries()
         reply.next = "database"
@@ -1407,6 +1353,7 @@ def template():
         reply.next = "module"
         reply.detail = T("Template <b>%s</b> selected." % selected_template,
                          lazy = False)
+        session.template = selected_template
         (reply.html, reply.script) = module_dialog(app)
         return json.dumps(reply)
     return template_json(reply)
@@ -1428,20 +1375,212 @@ def template_dialog(app):
     return (template.xml(), script)
 
 def module_dialog(app):
+    import sys
+    appname = session.appname
+    # Code to get a list of modules
+    base_path = os.path.join("applications", appname)
+    path = os.path.join(base_path, "modules", "s3")
+    sys.path.append(path)
+    from s3translate import TranslateGetFiles, TranslateAPI
+    modlist = TranslateGetFiles.get_module_list(base_path)
+    corelist = TranslateAPI.core_modules
+    def get_template_modules():
+        path = os.path.join(base_path, "modules")
+        sys.path.append(path)
+        from s3cfg import S3Config
+        from gluon.storage import Storage
+        from gluon import current
+        current.deployment_settings = S3Config()
+        template_path = os.path.join(base_path, "private", "templates", session.template)
+        sys.path.append(template_path)
+        try:
+            # import the template config file (if one exists)
+            import config
+        finally:
+            return config.settings.modules.keys()
+    templatelist = get_template_modules()
     module = DIV(_id="module-form",
                   _title=T("Template")
                  )
     module.append(P(T("Select the modules that will be enabled.")))
-    module.append(TABLE(TR(TD( LABEL(T("Modules"))),
-                              ),
-                        _id="module_list"
-                        ),
-                   )
+    colcnt = 7
+    ctable = TABLE(TR(TD(LABEL(T("Core Modules")),
+                        _colspan = 2*colcnt
+                       )
+                    ),
+                    _id="module_list"
+                 )
+    ctr = TR()
+    ctable.append(ctr)
+    ccol = 0
+    otable = TABLE(TR(TD(LABEL(T("Other Modules")),
+                        _colspan = 2*colcnt
+                       )
+                    ),
+                    _id="module_list"
+                 )
+    otr = TR()
+    otable.append(otr)
+    ocol = 0
+    modlist.sort()
+    templatelist.sort()
+    for mod in modlist:
+        coremod = False
+        if mod in corelist:
+            coremod = True
+        if not coremod and mod in templatelist:
+            continue
+        cb_name = "%s_in" % mod
+        input = INPUT(_id = cb_name,
+                      _name = cb_name,
+                      _type = "checkbox",
+                      _value = mod,
+                      _checked = True,
+                      _class="text ui-widget-content ui-corner-all"
+                     )
+        td = TD(input)
+        if coremod:
+            input.attributes["_disable"]=True
+            ctr.append(td)
+            ctr.append(TD(LABEL(mod)))
+            ccol = (ccol + 1) % colcnt
+            if ccol == 0:
+                ctr = TR()
+                ctable.append(ctr)
+        else:
+            input.attributes["_checked"]=False
+            otr.append(td)
+            otr.append(TD(LABEL(mod)))
+            ocol = (ocol + 1) % colcnt
+            if ocol == 0:
+                otr = TR()
+                otable.append(otr)
+    ttable = TABLE(TR(TD(LABEL(T("Template Modules")),
+                        _colspan = 2*colcnt
+                       )
+                    ),
+                    _id="module_list"
+                 )
+    ttr = TR()
+    ttable.append(ttr)
+    tcol = 0
+    for mod in templatelist:
+        if mod in corelist:
+            continue
+        cb_name = "%s_in" % mod
+        input = INPUT(_id = cb_name,
+                      _name = cb_name,
+                      _type = "checkbox",
+                      _value = mod,
+                      _checked = True,
+                      _class="text ui-widget-content ui-corner-all"
+                     )
+        td = TD(input)
+        ttr.append(td)
+        ttr.append(TD(LABEL(mod)))
+        tcol = (tcol + 1) % colcnt
+        if tcol == 0:
+            ttr = TR()
+            ttable.append(ttr)
+    module.append(ctable)
+    module.append(ttable)
+    module.append(otable)
     script = "static/js/module.js"
     return (module.xml(), script)
 
 
 def module():
+    def commented(line):
+        for char in line:
+            if char == " ":
+                continue
+            return char == "#"
+
+    def enable_module(mod):
+        appname = session.appname
+        base_cfg_file = os.path.join("applications",
+                                     appname,
+                                     "private",
+                                     "templates",
+                                     session.template,
+                                     "config.py"
+                                     )
+        input = open(base_cfg_file)
+        with open(base_cfg_file, "r") as file:
+            data = file.readlines()
+        quoted_mod = '"%s"' % mod
+        uncomment = False
+        started = False
+        new_data = ""
+        for line in data:
+            if "settings.modules" in line:
+                started = True
+            if not started:
+                new_data += line
+                continue
+            if quoted_mod in line and commented(line):
+                uncomment = True
+            if uncomment:
+                new_line = ""
+                start_line = True
+                for char in line:
+                    if start_line  and char == "#":
+                        continue
+                    if char == " ":
+                        new_line += " "
+                    else:
+                        new_line += char
+                        start_line = False
+                new_data += new_line
+            else:
+                new_data += line
+            if "))," in line:
+                uncomment = False
+
+        with open(base_cfg_file, 'w') as file:
+            file.writelines( new_data )
+
+    def disable_module(mod):
+        appname = session.appname
+        base_cfg_file = os.path.join("applications",
+                                     appname,
+                                     "private",
+                                     "templates",
+                                     session.template,
+                                     "config.py"
+                                     )
+        input = open(base_cfg_file)
+        with open(base_cfg_file, "r") as file:
+            data = file.readlines()
+        quoted_mod = '"%s"' % mod
+        to_comment = False
+        started = False
+        new_data = ""
+        for line in data:
+            if "settings.modules" in line:
+                started = True
+            if not started:
+                new_data += line
+                continue
+            if quoted_mod in line and not commented(line):
+                to_comment = True
+            if to_comment:
+                new_data += "#%s" % line
+            else:
+                new_data += line
+            if "))," in line:
+                to_comment = False
+
+        with open(base_cfg_file, 'w') as file:
+            file.writelines( new_data )
+
+    enabled_modules = json.loads(request.get_vars.module)['enabled']
+    disabled_modules = json.loads(request.get_vars.module)['disabled']
+    for mod in enabled_modules:
+        enable_module(mod)
+    for mod in disabled_modules:
+        disable_module(mod)
+
     def module_json(reply):
         reply.next = "finished"
         return json.dumps(reply)
