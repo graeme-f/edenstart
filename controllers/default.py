@@ -182,21 +182,7 @@ function insert_basic(id, html){
 }
 
 
-$.get('/'+app+'/default/start')
-.done(function(data){success(data)});
-
-$("input[name='display']").change(function(){
-    if ($(this).val() == "basic"){
-        $("#detail").hide();
-        $("#advanced").hide();
-    } else if ($(this).val() == "detail"){
-        $("#detail").show();
-        $("#advanced").hide();
-    } else if ($(this).val() == "advanced"){
-        $("#detail").show();
-        $("#advanced").show();
-    }
-});
+$.get('/'+app+'/default/start').done(function(data){success(data)});
 
 function updateTips( t ) {
     $(".validateTips").text(t).addClass( "ui-state-highlight" );
@@ -234,42 +220,6 @@ checkRestrict = function(o, n, exclude){
 }
 """ % (app)
     return dict(script=script)
-
-#
-#
-#def appexist_dialog(app):
-#    existsName = DIV(_id="app-exists-alert",
-#                     _title=T("Application exists")
-#                   )
-#    existsName.append(P(T("The application folder already exists. The setup will now work with this folder")))
-#    response.dialogs.append(existsName)
-#    script = """
-#$(function() {
-#    $("#app-exists-alert").dialog({
-#        autoOpen: false,
-#        modal: true,
-#        buttons: {
-#            %s: function() {
-#                $( this ).dialog("close");
-#                $.get('/%s/default/index', args).done(function(data){success(data)});
-#            },
-#            %s: function() {
-#                $( this ).dialog("close");
-#            }
-#        },
-#    });
-#});
-#""" % (T("Continue"), app, T("Cancel"))
-#    return script
-
-
-
-
-
-
-
-
-
 
 
 '''
@@ -455,7 +405,7 @@ def setup_type():
     elif session.setup_type == "use":
         reply.next = "use"
         reply.dialog = "#use-eden-form"
-        (reply.html, reply.script) = use_dialog(app)
+        (reply.html, reply.script) = use_dialog(app, reply)
     else:
         reply.next = "finish"
     return json.dumps(reply)
@@ -717,7 +667,7 @@ def use():
     reply.next = "python"
     return use_json(reply)
 
-def use_dialog(app):
+def use_dialog(app, reply):
     use = DIV(_id="use-eden-form",
               _title=T("Copy Eden")
              )
@@ -725,12 +675,14 @@ def use_dialog(app):
     use_table.append(TD(T("Select the eden application you want to use")))
     use.append(use_table)
     use_table = TABLE()
+    found = False
     appname = session.appname
     for eden in session.eden_apps:
         session.appname = eden # set session.appname to access the config file
         if check_000_config():
-            if get_000_config("FINISHED_EDITING_CONFIG_FILE"):
+            if get_000_config("FINISHED_EDITING_CONFIG_FILE", True):
                 continue
+        found = True
         use_table.append(TR(TD(INPUT(_id = "app_%s" % eden,
                                       _name = "app_name_in",
                                       _type = "radio",
@@ -739,6 +691,10 @@ def use_dialog(app):
                                       )),
                             TD(LABEL(eden))
                        ))
+    if not found:
+        reply.next = "finished"
+        reply.detail += "<br>" + T("No available application could be found.", lazy=False)
+        
     session.appname = appname # reset session.appname
     use.append(use_table)
     script = "static/js/useapp.js"
@@ -1582,6 +1538,7 @@ def module():
         disable_module(mod)
 
     def module_json(reply):
+        set_000_config("FINISHED_EDITING_CONFIG_FILE", "", True)
         reply.next = "finished"
         return json.dumps(reply)
     return module_json(reply)

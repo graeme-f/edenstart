@@ -1,24 +1,11 @@
 {{extend 'layout.html'}}
 <table>
     <tr>
-        <td>
-            <input type=radio name="display" value="basic" checked>Basic
-        </td>
-        <td>
-            <input type=radio name="display" value="detail">Detail
-        </td>
-        <td>
-            <input type=radio name="display" value="advanced">Advanced
-        </td>
-    </tr>
-</table>
-<table>
-    <tr>
         <td id="basic" valign=top>{{=response.basic or ''}}</td>
-        <td id="detail" valign=top style="display:none">{{=response.detail or ''}}</td>
+        <td id="detail" valign=top>{{=response.detail or ''}}</td>
     </tr>
     <tr>
-        <td id="advanced" colspan=2 valign=top style="display:none">Advanced</td>
+        <td id="advanced" colspan=2 valign=top">Advanced</td>
     </tr>
 </table>
 <div id=dialogs>
