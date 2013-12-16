@@ -118,7 +118,7 @@ success = function(_data){
     data = $.parseJSON(_data) // Global scope so that dialog events can access it
     if (data.html) {$("#dialogs").html(data.html);};
     if (data.script){
-        $.getScript(data.script)
+        $.getScript($(location).attr('href') + '/' + data.script)
            .done(function(){dashboard_update();})
            .fail(function( jqxhr, settings, exception ) {throw exception;});
     } else {
