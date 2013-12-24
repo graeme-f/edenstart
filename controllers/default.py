@@ -23,10 +23,10 @@
          - python (Check that the required python libraries have been installed)
            * pip (Attempt to install all libraries that are required)
          - database (Find out what type of database will be used)
-         * connect (Attempt to connect to that database)
+         - connect (Attempt to connect to that database)
          - base (Get basic information for the install)
          - template (Select the template to use)
-         * module (Select the modules to use)
+         - module (Select the modules to use)
          * finsihed (Redirect to the newly installed Eden)
 
     Note: the above is a guide to where work needs to be done

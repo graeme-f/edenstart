@@ -18,7 +18,10 @@ div.error { background-color: red; color: white; padding: 3px; }
  </head>
  <body>
   <!-- start header -->
-  {{try:}}{{=auth.navbar(action=URL('default','user'))}}{{except:pass}}
+<!--  @todo a mechanism to login should be provided for when the update of a deployment is provided.
+            Ideally the login should be linked to the admin account of the live system.
+      {{try:}}{{=auth.navbar(action=URL('default','user'))}}{{except:pass}}
+      -->
 
   <div id="container">
    <div id="border">
