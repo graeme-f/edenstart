@@ -1088,7 +1088,6 @@ def database():
                 reply.db_port = get_000_config("port", "3306")
             else:
                 reply.db_port = "3306"
-            reply.db_port = get_000_config("port", "3306")
             reply.db_schema = get_000_config("schema", "sahana")
             reply.db_user = get_000_config("user", "sahana")
             reply.db_password = get_000_config("password", "")
