@@ -517,7 +517,12 @@ def git():
             p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
             (myout, myerr) = p.communicate()
             reply.detail = T("Looking for git, <b>found:</b> %s" % myout, lazy = False)
-            reply.advanced = myerr
+            if myerr:
+                reply.result = False
+                reply.fatal = T("Unable to continue, please install git",
+                                lazy=False)
+                reply.detail = "%s<br>" %(reply.fatal)
+                reply.advanced = myerr
         except Exception, inst:
             reply.result = False
             reply.fatal = T("Unable to continue, please install git",
@@ -717,7 +722,6 @@ def python():
 
     def python_json(reply):
         result = check_python_libraries()
-        reply.next = "database"
         libs_missing = False
         error_lib = []
         warning_lib = []
@@ -797,8 +801,9 @@ def python():
             reply.insert_basic_id = "install"
             reply.dialog = "#missing-libs-alert"
             (reply.html, reply.script) = pip_dialog(app)
-
-        return json.dumps(reply)
+            return json.dumps(reply)
+        else:
+            return pre_db_json(reply)
 
     return python_json(reply)
 
