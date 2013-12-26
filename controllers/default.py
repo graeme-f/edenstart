@@ -1084,6 +1084,10 @@ def database():
             (reply.html, reply.script) = connect_dialog(app)
             reply.next = "connect"
             reply.db_host = get_000_config("host", "localhost")
+            if get_000_config("database.db_type", "") == "mysql":
+                reply.db_port = get_000_config("port", "3306")
+            else:
+                reply.db_port = "3306"
             reply.db_port = get_000_config("port", "3306")
             reply.db_schema = get_000_config("schema", "sahana")
             reply.db_user = get_000_config("user", "sahana")
@@ -1093,7 +1097,10 @@ def database():
             (reply.html, reply.script) = connect_dialog(app)
             reply.next = "connect"
             reply.db_host = get_000_config("host", "localhost")
-            reply.db_port = get_000_config("port", "5432")
+            if get_000_config("database.db_type", "") == "postgres":
+                reply.db_port = get_000_config("port", "5432")
+            else:
+                reply.db_port = "5432"
             reply.db_schema = get_000_config("schema", "sahana")
             reply.db_user = get_000_config("user", "sahana")
             reply.db_password = get_000_config("password", "")
