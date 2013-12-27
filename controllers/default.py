@@ -609,6 +609,11 @@ def copy():
             reply.detail = reply.fatal + "<br>"
             reply.advanced = "<b>command: </b>copytree(%s, %s,ignore=ignore_patterns(\"errors*\", \"databases*\", \"sessions\", \"uploads*\"))<br><b>exception:</b>%s<br>" % (source, destination, inst)
             reply.next = "finished"
+        # If an active 000_config file has been copied then set FINISHED_EDITING_CONFIG_FILE to False
+        session.appname = new_appname
+        if check_000_config():
+            set_000_config("FINISHED_EDITING_CONFIG_FILE", False)
+
         return json.dumps(reply)
 
     if not request.ajax:
@@ -941,9 +946,9 @@ def pip():
                            T("Looking for pip install --target option, <b>found:</b>", lazy = False)
             reply.next = "install"
             if session.error_lib:
-                reply.nextsubaction = session.error_lib[-1]
+                reply.nextsubaction = session.error_lib[0]
             elif session.warning_lib:
-                reply.nextsubaction = session.warning_lib[-1]
+                reply.nextsubaction = session.warning_lib[0]
         return json.dumps(reply)
     # End of pip_json
 
@@ -1032,18 +1037,18 @@ def install():
         # Install a required lib, if one exists
         lib = None
         if session.error_lib:
-            lib = session.error_lib.pop()
+            lib = session.error_lib.pop(0)
             reply = pip_install(reply, lib, True)
         # Install an optional lib, if one exists
         elif session.warning_lib:
-            lib = session.warning_lib.pop()
+            lib = session.warning_lib.pop(0)
             reply = pip_install(reply, lib, False)
         if lib:
             reply.subaction = lib
             if session.error_lib:
-                reply.nextsubaction = session.error_lib[-1]
+                reply.nextsubaction = session.error_lib[0]
             elif session.warning_lib:
-                reply.nextsubaction = session.warning_lib[-1]
+                reply.nextsubaction = session.warning_lib[0]
             reply.next = "install"
         else:
             if session.fatal:
