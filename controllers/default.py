@@ -119,7 +119,7 @@ success = function(_data){
     if (data.html) {$("#dialogs").html(data.html);};
     if (data.script){
         if (!window.location.origin)
-        window.location.origin = window.location.protocol+"//"+window.location.host;
+            {window.location.origin = window.location.protocol+"//"+window.location.host;}
         $.getScript(window.location.origin + '/edenstart/' + data.script)
            .done(function(){dashboard_update();})
            .fail(function( jqxhr, settings, exception ) {throw exception;});
