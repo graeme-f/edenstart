@@ -118,7 +118,9 @@ success = function(_data){
     data = $.parseJSON(_data) // Global scope so that dialog events can access it
     if (data.html) {$("#dialogs").html(data.html);};
     if (data.script){
-        $.getScript(location.origin + '/edenstart/' + data.script)
+        if (!window.location.origin)
+        window.location.origin = window.location.protocol+"//"+window.location.host;
+        $.getScript(window.location.origin + '/edenstart/' + data.script)
            .done(function(){dashboard_update();})
            .fail(function( jqxhr, settings, exception ) {throw exception;});
     } else {
