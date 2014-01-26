@@ -27,7 +27,9 @@
          - base (Get basic information for the install)
          - template (Select the template to use)
          - module (Select the modules to use)
-         * finsihed (Redirect to the newly installed Eden)
+         * finished (Redirect to the newly installed Eden)
+           - start the new Eden app (will this require a web2py restart?)
+           - Can it gather the database create & then the prepop details?
 
     Note: the above is a guide to where work needs to be done
          - indicates completed
@@ -68,6 +70,8 @@ if request.ajax:
     reply.dialog = False
     reply.detail = ""
     reply.advanced = ""
+elif request.function != "index":
+    redirect("/%s/default/index" % app)
 
 def index():
     try:
@@ -172,11 +176,17 @@ dashboard_update = function(){
         $("#"+data.next+"_wait").hide();
         $("#"+data.next+"_process").show();
         if (data.dialog){
-            $(data.dialog).dialog("open")
+            $(data.dialog).on("dialogclose", function(event, ui){user_abort();});
+            $(data.dialog).dialog("open");
         } else {
             $.get('/'+app+'/default/'+data.next).done(function(data){success(data)});
         }
     }
+}
+
+function user_abort(){
+    $("#"+data.next+"_process").hide();
+     $("#detail").append("<p><b>User Aborted.</b></p>");
 }
 
 function insert_basic(id, html){
@@ -342,6 +352,25 @@ def set_000_config(attr, value, comment=False):
         file.writelines( data )
 
 
+def file_check(*path):
+    """
+        path this is a list of directories ending with the file
+        Usage : files_check("sub_directory","another_sub_directory", "File.txt")
+        returns a boolean value (True/False)
+    """
+    path = os.path.join("applications",*path)
+    return os.path.isfile(path)
+
+def directory_check(*directories):
+    """
+        directories : this is a list of all sub-directories and also includes the the directory to check.
+        Usage : directory_check("directory","sub_directory","another_sub_directory")
+        returns a boolean value (True/False)
+    """
+    path = os.path.join("applications",
+                        *directories)
+    return os.path.isdir(path)
+
 '''
     start
     =====
@@ -353,10 +382,8 @@ def start():
         known_apps = []
         ls = os.listdir("applications")
         for obj in ls:
-            path = os.path.join("applications", obj)
-            if os.path.isdir(path):
-                if os.path.isdir(os.path.join(path, ".git")):
-                    known_apps.append(obj)
+            if directory_check(obj, ".git"):
+                known_apps.append(obj)
         return known_apps
 
     def get_eden_apps():
@@ -364,14 +391,13 @@ def start():
         testLine = "Sahana Eden is an Emergency Development Environment"
         ls = os.listdir("applications")
         for app in session.known_apps:
-            path = os.path.join("applications", app,"ABOUT")
-            if os.path.isfile(path):
-                file = open(path)
+            if directory_check(app, "modules","s3") and \
+               directory_check(app, "private", "templates") and \
+               file_check(app, "ABOUT"):
+                file = open(os.path.join("applications", app, "ABOUT"))
                 if file.read(len(testLine)) == testLine:
                     eden_apps.append(app)
         return eden_apps
-    if not request.ajax:
-        redirect("/%s/default/index" % app)
 
     session.known_apps = get_known_apps() # used by appname
     session.eden_apps = get_eden_apps()   # used by use_existing
@@ -1239,10 +1265,11 @@ def base():
         dir_list = os.listdir(template_path)
         dir_list.sort()
         option_list = ""
+        selected_template = get_000_config("template", "default")
         for file in dir_list:
             new_file = "%s/%s" % (template_path, file)
             if os.path.isdir(new_file):
-                if file == "default":
+                if file == selected_template:
                     option_list = option_list\
                                 + OPTION(file,
                                          _id=file,
@@ -1349,8 +1376,9 @@ def template_dialog(app):
     template.append(P(T("Select the template that will be used.")))
     template.append(TABLE(TR(TD( LABEL(T("Template"))),
                              TD( SELECT(_id = "template_in",
-                                     _name = "template_in"
-                                     ))
+                                        _name = "template_in"
+                                       )
+                                )
                               )
                         )
                    )
