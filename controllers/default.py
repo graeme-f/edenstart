@@ -185,8 +185,10 @@ dashboard_update = function(){
 }
 
 function user_abort(){
-    $("#"+data.next+"_process").hide();
-     $("#detail").append("<p><b>User Aborted.</b></p>");
+    if (unexpected_close) {
+        $("#"+data.next+"_process").hide();
+        $("#detail").append("<p><b>User Aborted.</b></p>");
+    }
 }
 
 function insert_basic(id, html){
@@ -370,6 +372,23 @@ def directory_check(*directories):
     path = os.path.join("applications",
                         *directories)
     return os.path.isdir(path)
+
+def read_config_file(appname, template):
+    """
+        Utility to read the selected config file
+        appname: the name of teh selected application
+        template: the name of the selected template
+    """
+    base_cfg_file = os.path.join("applications",
+                                 appname,
+                                 "private",
+                                 "templates",
+                                 template,
+                                 "config.py"
+                                 )
+    with open(base_cfg_file, "r") as file:
+        data = file.readlines()
+    return data
 
 '''
     start
@@ -1422,12 +1441,39 @@ def module_dialog(app):
         import config
         return config.settings.modules.keys()
 
+    def get_module_nice_name(mod):
+        data = read_config_file(session.appname, session.template)
+        quoted_mod = '"%s"' % mod
+        started = False
+        module_found = False
+        for line in data:
+            if "settings.modules" in line:
+                started = True
+            if not started:
+                continue
+            if  quoted_mod in line:
+                module_found = True
+            if module_found and "name_nice" in line:
+                start_line = False
+                nice_name = ""
+                for char in line:
+                    if start_line and char == '"':
+                        start_line = False
+                    elif char == '"':
+                        start_line = True
+                        continue
+                    if start_line:
+                        nice_name += char
+                return nice_name
+        return ""
+
+
     templatelist = get_template_modules()
     module = DIV(_id="module-form",
                   _title=T("Template")
                  )
     module.append(P(T("Select the modules that will be enabled.")))
-    colcnt = 7
+    colcnt = 4
     ctable = TABLE(TR(TD(LABEL(T("Core Modules")),
                         _colspan = 2*colcnt
                        )
@@ -1449,6 +1495,9 @@ def module_dialog(app):
     modlist.sort()
     templatelist.sort()
     for mod in modlist:
+        nice_name = get_module_nice_name(mod)
+        if nice_name == "":
+            nice_name = mod
         coremod = False
         if mod in corelist:
             coremod = True
@@ -1466,7 +1515,7 @@ def module_dialog(app):
         if coremod:
             input.attributes["_disable"]=True
             ctr.append(td)
-            ctr.append(TD(LABEL(mod)))
+            ctr.append(TD(LABEL(nice_name)))
             ccol = (ccol + 1) % colcnt
             if ccol == 0:
                 ctr = TR()
@@ -1474,7 +1523,7 @@ def module_dialog(app):
         else:
             input.attributes["_checked"]=False
             otr.append(td)
-            otr.append(TD(LABEL(mod)))
+            otr.append(TD(LABEL(nice_name)))
             ocol = (ocol + 1) % colcnt
             if ocol == 0:
                 otr = TR()
@@ -1491,6 +1540,9 @@ def module_dialog(app):
     for mod in templatelist:
         if mod in corelist:
             continue
+        nice_name = get_module_nice_name(mod)
+        if nice_name == "":
+            nice_name = mod
         cb_name = "%s_in" % mod
         input = INPUT(_id = cb_name,
                       _name = cb_name,
@@ -1501,7 +1553,7 @@ def module_dialog(app):
                      )
         td = TD(input)
         ttr.append(td)
-        ttr.append(TD(LABEL(mod)))
+        ttr.append(TD(LABEL(nice_name)))
         tcol = (tcol + 1) % colcnt
         if tcol == 0:
             ttr = TR()
@@ -1521,17 +1573,7 @@ def module():
             return char == "#"
 
     def enable_module(mod):
-        appname = session.appname
-        base_cfg_file = os.path.join("applications",
-                                     appname,
-                                     "private",
-                                     "templates",
-                                     session.template,
-                                     "config.py"
-                                     )
-        input = open(base_cfg_file)
-        with open(base_cfg_file, "r") as file:
-            data = file.readlines()
+        data = read_config_file(session.appname, session.template)
         quoted_mod = '"%s"' % mod
         uncomment = False
         started = False
@@ -1565,17 +1607,7 @@ def module():
             file.writelines( new_data )
 
     def disable_module(mod):
-        appname = session.appname
-        base_cfg_file = os.path.join("applications",
-                                     appname,
-                                     "private",
-                                     "templates",
-                                     session.template,
-                                     "config.py"
-                                     )
-        input = open(base_cfg_file)
-        with open(base_cfg_file, "r") as file:
-            data = file.readlines()
+        data = read_config_file(session.appname, session.template)
         quoted_mod = '"%s"' % mod
         to_comment = False
         started = False

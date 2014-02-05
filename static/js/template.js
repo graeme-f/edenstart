@@ -1,4 +1,6 @@
 btnName = "Continue";
+unexpected_close = true;
+
 
 $(function() {
     $("#template-form").dialog({
@@ -7,6 +9,7 @@ $(function() {
             text: btnName,
             click: function() {
                 args['template'] = $("#template_in").val();
+                unexpected_close = false;
                 $( this ).dialog("close");
                 $.get('/'+app+'/default/'+data.next, args).done(function(data){success(data)});
             }

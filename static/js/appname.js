@@ -1,5 +1,6 @@
 btnName = "Continue";
 args = new Object();
+unexpected_close = true;
 
 $(function() {
     var appname = $("#appname_in"),
@@ -19,6 +20,7 @@ $(function() {
                 bValid = bValid && checkRestrict( appname, "Application name already exists", data.exclude_list);
                 if ( bValid ) {
                     args['appname'] = appname.val();
+                    unexpected_close = false;
                     $( this ).dialog("close");
                     $.get('/'+app+'/default/'+data.next, args).done(function(data){success(data)});
                 }

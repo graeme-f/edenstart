@@ -1,4 +1,5 @@
 btnName = "Continue";
+unexpected_close = true;
 
 $(function() {
     $("#module-form").dialog({
@@ -14,6 +15,7 @@ $(function() {
                 var notchecked = $('#module-form').find(':checkbox:not(:checked)');
                 $.each(notchecked, function(i){disabled_modules.push(notchecked[i].value);});
                 args['module'] = JSON.stringify({'enabled': enabled_modules, 'disabled': disabled_modules});
+                unexpected_close = false;
                 $( this ).dialog("close");
                 $.get('/'+app+'/default/'+data.next, args).done(function(data){success(data)});
             }

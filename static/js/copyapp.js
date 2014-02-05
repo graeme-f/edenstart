@@ -1,5 +1,6 @@
 btnName = "Continue";
 args = new Object();
+unexpected_close = true;
 
 $(function() {
     var appname = $("#appname_in"),
@@ -19,6 +20,7 @@ $(function() {
                 if ( bValid ) {
                     args['appname'] = appname.val();
                     args['copy_appname'] = $("input:radio[name=app_name_in]:checked").val();
+                    unexpected_close = false;
                     $(this).dialog("close");
                     $.get('/'+app+'/default/'+data.next, args).done(function(data){success(data)});
                 }

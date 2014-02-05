@@ -3,6 +3,7 @@ nameError = "The system name needs can contain letters and spaces and be between
 abbrError = "The system short name needs can contain letters and spaces and be between 3 and 32 characters long."
 urlError = "The url needs to be a valid URL, including the port number"
 
+unexpected_close = true;
 
 $(function() {
     var sysname = $("#sys_name_in"),
@@ -29,6 +30,7 @@ $(function() {
                     if ( debug.val() == "debug") {
                         args['debug'] = debug.val();
                     }
+                    unexpected_close = false;
                     $( this ).dialog("close");
                     $.get('/'+app+'/default/'+data.next, args).done(function(data){success(data)});
                 }

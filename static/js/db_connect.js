@@ -5,6 +5,7 @@ schemaError = "Schema name may consist of a-z, 0-9, and underscore."
 userError = "The user name must be between 3 and 10 characters and can contain a letter, number or underscore"
 passwordError = "The password must be between 6 and 18 characters and can contain a letter, number, hyphen or underscore"
 
+unexpected_close = true;
 args = new Object();
 
 $(function() {
@@ -40,6 +41,7 @@ $(function() {
                     args['db_schema'] = dbschema.val();
                     args['db_user'] = dbuser.val();
                     args['db_password'] = dbpassword.val();
+                    unexpected_close = false;
                     $( this ).dialog("close");
                     $.get('/'+app+'/default/'+data.next, args).done(function(data){success(data)});
                 }
