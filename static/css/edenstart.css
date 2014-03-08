@@ -8,3 +8,6 @@ label, input {
     display: block;
 }
 
+#module_list label {
+    font-size: 0.8em;
+}

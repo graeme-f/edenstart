@@ -1465,7 +1465,7 @@ def module_dialog(app):
                     if start_line:
                         nice_name += char
                 return nice_name
-        return ""
+        return mod
 
 
     templatelist = get_template_modules()
@@ -1474,7 +1474,7 @@ def module_dialog(app):
                  )
     module.append(P(T("Select the modules that will be enabled.")))
     colcnt = 4
-    ctable = TABLE(TR(TD(LABEL(T("Core Modules")),
+    ctable = TABLE(TR(TD(H2(T("Core Modules")),
                         _colspan = 2*colcnt
                        )
                     ),
@@ -1483,7 +1483,7 @@ def module_dialog(app):
     ctr = TR()
     ctable.append(ctr)
     ccol = 0
-    otable = TABLE(TR(TD(LABEL(T("Other Modules")),
+    otable = TABLE(TR(TD(H2(T("Other Modules")),
                         _colspan = 2*colcnt
                        )
                     ),
@@ -1496,8 +1496,6 @@ def module_dialog(app):
     templatelist.sort()
     for mod in modlist:
         nice_name = get_module_nice_name(mod)
-        if nice_name == "":
-            nice_name = mod
         coremod = False
         if mod in corelist:
             coremod = True
@@ -1513,7 +1511,7 @@ def module_dialog(app):
                      )
         td = TD(input)
         if coremod:
-            input.attributes["_disable"]=True
+            input.attributes["_disabled"]="disabled"
             ctr.append(td)
             ctr.append(TD(LABEL(nice_name)))
             ccol = (ccol + 1) % colcnt
@@ -1528,7 +1526,7 @@ def module_dialog(app):
             if ocol == 0:
                 otr = TR()
                 otable.append(otr)
-    ttable = TABLE(TR(TD(LABEL(T("Template Modules")),
+    ttable = TABLE(TR(TD(H2(T("Template Modules")),
                         _colspan = 2*colcnt
                        )
                     ),
@@ -1541,8 +1539,6 @@ def module_dialog(app):
         if mod in corelist:
             continue
         nice_name = get_module_nice_name(mod)
-        if nice_name == "":
-            nice_name = mod
         cb_name = "%s_in" % mod
         input = INPUT(_id = cb_name,
                       _name = cb_name,
