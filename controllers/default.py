@@ -869,89 +869,13 @@ def check_libraries():
     s3check = exec_environment(module)
     warnings = []
     errors = []
-    try:
-        result = s3check.s3_check_python_libraries()
-    except:
-        result = check_python_libraries()
+    
+    result = s3check.s3_check_python_libraries()
     errors = result [0]
     warnings = result [1]
     return {"error_messages":errors,"warning_messages":warnings}
 
-def check_python_libraries():
-    '''
-        @todo: remove this once the code in eden/modules/s3_update_check.py
-               has been merged and it has been established.
-    '''
-    # Fatal errors
-    errors = []
-    # Non-fatal warnings
-    warnings = []
 
-    # -------------------------------------------------------------------------
-    # Check Python libraries
-    try:
-        import dateutil
-    except ImportError:
-        errors.append("S3 unresolved dependency: python-dateutil required for Sahana to run")
-    try:
-        import lxml
-    except ImportError:
-        errors.append("S3XML unresolved dependency: lxml required for Sahana to run")
-    try:
-        import shapely
-    except ImportError:
-        warnings.append("S3GIS unresolved dependency: shapely required for GIS support")
-    try:
-        import xlrd
-    except ImportError:
-        warnings.append("S3XLS unresolved dependency: xlrd required for XLS import")
-    try:
-        import xlwt
-    except ImportError:
-        warnings.append("S3XLS unresolved dependency: xlwt required for XLS export")
-    try:
-        from PIL import Image
-    except ImportError:
-        try:
-            import Image
-        except ImportError:
-            warnings.append("S3PDF unresolved dependency: PIL (Python Imaging Library) required for PDF export")
-    try:
-        import reportlab
-    except ImportError:
-        warnings.append("S3PDF unresolved dependency: reportlab required for PDF export")
-    try:
-        from osgeo import ogr
-    except ImportError:
-        warnings.append("S3GIS unresolved dependency: GDAL required for Shapefile support")
-    try:
-        import tweepy
-    except ImportError:
-        warnings.append("S3Msg unresolved dependency: tweepy required for non-Tropo Twitter support")
-    try:
-        import sunburnt
-    except ImportError, inst:
-        warnings.append("S3Doc unresolved dependency: sunburnt required for Full-Text Search support")
-    try:
-        import pyth
-    except ImportError:
-        warnings.append("S3Doc unresolved dependency: pyth required for RTF document support in Full-Text Search")
-    try:
-        import matplotlib
-    except ImportError:
-        msg = "S3Chart unresolved dependency: matplotlib required for charting in Survey module"
-        warnings.append(msg)
-    try:
-        import PyRTF
-    except ImportError:
-        msg = "Survey unresolved dependency: PyRTF required if you want to export assessment/survey templates as a Word document"
-        warnings.append(msg)
-    try:
-        import numpy
-    except ImportError:
-        warnings.append("Vulnerability unresolved dependency: numpy required for Vulnerability module support")
-
-    return (errors, warnings)
 '''
     Pip
     ======
